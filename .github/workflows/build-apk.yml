@@ -1,0 +1,42 @@
+name: Gerar APK - Radar Afiliados
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    # Permite clicar em "Run workflow" na aba Actions pra gerar o APK
+    # manualmente, sem precisar dar push.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Criar arquivo de credenciais (a partir dos Secrets)
+        env:
+          SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+          SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
+          ML_ACCESS_TOKEN: ${{ secrets.ML_ACCESS_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          cat > credenciais_locais.py << EOF
+          SHOPEE_APP_ID = "${SHOPEE_APP_ID}"
+          SHOPEE_SECRET = "${SHOPEE_SECRET}"
+          ML_ACCESS_TOKEN = "${ML_ACCESS_TOKEN}"
+          GEMINI_API_KEY = "${GEMINI_API_KEY}"
+          EOF
+
+      - name: Compilar o APK
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      - name: Disponibilizar o APK para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-afiliados-apk
+          path: ${{ steps.buildozer.outputs.filename }}
