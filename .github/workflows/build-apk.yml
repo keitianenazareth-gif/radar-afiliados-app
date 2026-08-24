@@ -29,14 +29,17 @@ jobs:
           EOF
 
       - name: Compilar o APK
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/home/user/hostcwd \
+            kivy/buildozer android debug
+
+      - name: Localizar o APK gerado
+        id: apk
+        run: echo "caminho=$(find bin -name '*.apk' | head -n 1)" >> "$GITHUB_OUTPUT"
 
       - name: Disponibilizar o APK para download
         uses: actions/upload-artifact@v4
         with:
           name: radar-afiliados-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: ${{ steps.apk.outputs.caminho }}
