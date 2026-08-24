@@ -4,6 +4,7 @@ import webbrowser
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
+from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
@@ -32,15 +33,15 @@ class TelaPrincipal(Screen):
 
         layout = BoxLayout(
             orientation="vertical",
-            padding=[18, 18, 18, 16],
-            spacing=10,
+            padding=[dp(18), dp(18), dp(18), dp(16)],
+            spacing=dp(10),
         )
 
         titulo = Label(
             text="RADAR AFILIADOS",
             size_hint_y=None,
-            height=42,
-            font_size=24,
+            height=dp(42),
+            font_size=sp(24),
             color=COR_TEXTO,
         )
         layout.add_widget(titulo)
@@ -48,8 +49,8 @@ class TelaPrincipal(Screen):
         subtitulo = Label(
             text="Encontre produtos com maior potencial de divulgacao",
             size_hint_y=None,
-            height=28,
-            font_size=13,
+            height=dp(28),
+            font_size=sp(13),
             color=COR_SECUNDARIA,
         )
         layout.add_widget(subtitulo)
@@ -58,8 +59,8 @@ class TelaPrincipal(Screen):
         geral = Button(
             text="⭐ VISÃO GERAL\nMelhores oportunidades de todas as plataformas",
             size_hint_y=None,
-            height=100,
-            font_size=17,
+            height=dp(100),
+            font_size=sp(17),
             halign="left",
             valign="middle",
             background_normal="",
@@ -67,7 +68,7 @@ class TelaPrincipal(Screen):
             color=(0.08, 0.08, 0.08, 1),
         )
         geral.bind(
-            size=lambda inst, tam: setattr(inst, "text_size", (tam[0] - 30, tam[1]))
+            size=lambda inst, tam: setattr(inst, "text_size", (tam[0] - dp(30), tam[1]))
         )
         geral.bind(on_release=self.abrir_geral)
         layout.add_widget(geral)
@@ -75,8 +76,8 @@ class TelaPrincipal(Screen):
         manual = Button(
             text="➕ ADICIONAR PRODUTO\nAmazon, Shein, Temu (cole o link)",
             size_hint_y=None,
-            height=90,
-            font_size=16,
+            height=dp(90),
+            font_size=sp(16),
             halign="left",
             valign="middle",
             background_normal="",
@@ -84,7 +85,7 @@ class TelaPrincipal(Screen):
             color=COR_TEXTO,
         )
         manual.bind(
-            size=lambda inst, tam: setattr(inst, "text_size", (tam[0] - 30, tam[1]))
+            size=lambda inst, tam: setattr(inst, "text_size", (tam[0] - dp(30), tam[1]))
         )
         manual.bind(on_release=self.abrir_manual)
         layout.add_widget(manual)
@@ -92,8 +93,8 @@ class TelaPrincipal(Screen):
         shopee = Label(
             text="SHOPEE",
             size_hint_y=None,
-            height=70,
-            font_size=42,
+            height=dp(70),
+            font_size=sp(42),
             color=COR_LARANJA,
         )
         layout.add_widget(shopee)
@@ -102,15 +103,15 @@ class TelaPrincipal(Screen):
             hint_text="Digite um produto para pesquisar...",
             multiline=False,
             size_hint_y=None,
-            height=66,
-            font_size=18,
+            height=dp(66),
+            font_size=sp(18),
             background_normal="",
             background_active="",
             background_color=(0.08, 0.10, 0.13, 1),
             foreground_color=COR_TEXTO,
             hint_text_color=(0.55, 0.58, 0.64, 1),
             cursor_color=COR_LARANJA,
-            padding=[15, 18],
+            padding=[dp(15), dp(18)],
         )
         layout.add_widget(self.pesquisa)
 
@@ -147,8 +148,8 @@ class TelaPrincipal(Screen):
         botao = Button(
             text=texto,
             size_hint_y=None,
-            height=88,
-            font_size=16,
+            height=dp(88),
+            font_size=sp(16),
             halign="left",
             valign="middle",
             background_normal="",
@@ -156,7 +157,7 @@ class TelaPrincipal(Screen):
             color=COR_TEXTO,
         )
         botao.bind(
-            size=lambda inst, tam: setattr(inst, "text_size", (tam[0] - 30, tam[1]))
+            size=lambda inst, tam: setattr(inst, "text_size", (tam[0] - dp(30), tam[1]))
         )
         botao.bind(on_release=lambda _botao, op=opcao: self.abrir_resultados(op))
         layout.add_widget(botao)
@@ -198,15 +199,15 @@ class TelaResultados(Screen):
 
         layout = BoxLayout(
             orientation="vertical",
-            padding=[18, 18, 18, 18],
-            spacing=10,
+            padding=[dp(18), dp(18), dp(18), dp(18)],
+            spacing=dp(10),
         )
 
         voltar = Button(
             text="< VOLTAR",
             size_hint_y=None,
-            height=52,
-            font_size=16,
+            height=dp(52),
+            font_size=sp(16),
             background_normal="",
             background_color=COR_FUNDO_CARD,
             color=COR_TEXTO,
@@ -217,8 +218,8 @@ class TelaResultados(Screen):
         self.titulo = Label(
             text="RESULTADOS",
             size_hint_y=None,
-            height=42,
-            font_size=21,
+            height=dp(42),
+            font_size=sp(21),
             color=COR_TEXTO,
         )
         layout.add_widget(self.titulo)
@@ -226,8 +227,8 @@ class TelaResultados(Screen):
         self.status = Label(
             text="",
             size_hint_y=None,
-            height=28,
-            font_size=13,
+            height=dp(28),
+            font_size=sp(13),
             color=COR_SECUNDARIA,
         )
         layout.add_widget(self.status)
@@ -236,8 +237,8 @@ class TelaResultados(Screen):
         self.lista = BoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            spacing=12,
-            padding=[0, 6, 0, 10],
+            spacing=dp(12),
+            padding=[dp(0), dp(6), dp(0), dp(10)],
         )
         self.lista.bind(minimum_height=self.lista.setter("height"))
         self.scroll.add_widget(self.lista)
@@ -253,8 +254,8 @@ class TelaResultados(Screen):
             Label(
                 text="Aguarde alguns segundos...",
                 size_hint_y=None,
-                height=90,
-                font_size=17,
+                height=dp(90),
+                font_size=sp(17),
                 color=COR_SECUNDARIA,
             )
         )
@@ -285,8 +286,8 @@ class TelaResultados(Screen):
         label = Label(
             text=mensagem,
             size_hint_y=None,
-            height=180,
-            font_size=15,
+            height=dp(180),
+            font_size=sp(15),
             halign="left",
             valign="top",
             color=COR_TEXTO,
@@ -303,8 +304,8 @@ class TelaResultados(Screen):
                 Label(
                     text="Nenhum produto encontrado.",
                     size_hint_y=None,
-                    height=100,
-                    font_size=16,
+                    height=dp(100),
+                    font_size=sp(16),
                     color=COR_SECUNDARIA,
                 )
             )
@@ -317,16 +318,16 @@ class TelaResultados(Screen):
         card = BoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            height=360 if opcao == "5" else 300,
-            padding=[15, 12, 15, 12],
-            spacing=6,
+            height=dp(360) if opcao == "5" else dp(300),
+            padding=[dp(15), dp(12), dp(15), dp(12)],
+            spacing=dp(6),
         )
 
         topo = Label(
             text=f"TOP {produto.get('posicao', '')}",
             size_hint_y=None,
-            height=30,
-            font_size=18,
+            height=dp(30),
+            font_size=sp(18),
             color=COR_LARANJA,
         )
         card.add_widget(topo)
@@ -334,8 +335,8 @@ class TelaResultados(Screen):
         nome = Label(
             text=str(produto.get("productName") or "Produto sem nome"),
             size_hint_y=None,
-            height=64,
-            font_size=16,
+            height=dp(64),
+            font_size=sp(16),
             halign="left",
             valign="middle",
             color=COR_TEXTO,
@@ -369,8 +370,8 @@ class TelaResultados(Screen):
         info = Label(
             text="\n".join(linhas),
             size_hint_y=None,
-            height=185 if opcao == "5" else 135,
-            font_size=14,
+            height=dp(185) if opcao == "5" else dp(135),
+            font_size=sp(14),
             halign="left",
             valign="top",
             color=COR_SECUNDARIA,
@@ -381,8 +382,8 @@ class TelaResultados(Screen):
         abrir = Button(
             text="ABRIR PRODUTO",
             size_hint_y=None,
-            height=48,
-            font_size=15,
+            height=dp(48),
+            font_size=sp(15),
             background_normal="",
             background_color=COR_LARANJA,
             color=COR_TEXTO,
@@ -410,15 +411,15 @@ class TelaGeral(Screen):
 
         layout = BoxLayout(
             orientation="vertical",
-            padding=[18, 18, 18, 18],
-            spacing=10,
+            padding=[dp(18), dp(18), dp(18), dp(18)],
+            spacing=dp(10),
         )
 
         voltar = Button(
             text="< VOLTAR",
             size_hint_y=None,
-            height=52,
-            font_size=16,
+            height=dp(52),
+            font_size=sp(16),
             background_normal="",
             background_color=COR_FUNDO_CARD,
             color=COR_TEXTO,
@@ -429,8 +430,8 @@ class TelaGeral(Screen):
         titulo = Label(
             text="⭐ VISÃO GERAL",
             size_hint_y=None,
-            height=42,
-            font_size=22,
+            height=dp(42),
+            font_size=sp(22),
             color=COR_AMARELO,
         )
         layout.add_widget(titulo)
@@ -438,8 +439,8 @@ class TelaGeral(Screen):
         self.status = Label(
             text="",
             size_hint_y=None,
-            height=28,
-            font_size=13,
+            height=dp(28),
+            font_size=sp(13),
             color=COR_SECUNDARIA,
         )
         layout.add_widget(self.status)
@@ -448,8 +449,8 @@ class TelaGeral(Screen):
         self.lista = BoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            spacing=12,
-            padding=[0, 6, 0, 10],
+            spacing=dp(12),
+            padding=[dp(0), dp(6), dp(0), dp(10)],
         )
         self.lista.bind(minimum_height=self.lista.setter("height"))
         self.scroll.add_widget(self.lista)
@@ -464,8 +465,8 @@ class TelaGeral(Screen):
             Label(
                 text="Aguarde alguns segundos...",
                 size_hint_y=None,
-                height=90,
-                font_size=17,
+                height=dp(90),
+                font_size=sp(17),
                 color=COR_SECUNDARIA,
             )
         )
@@ -515,8 +516,8 @@ class TelaGeral(Screen):
                 Label(
                     text="Nenhum produto encontrado.\nVerifique suas credenciais.",
                     size_hint_y=None,
-                    height=100,
-                    font_size=16,
+                    height=dp(100),
+                    font_size=sp(16),
                     color=COR_SECUNDARIA,
                 )
             )
@@ -529,9 +530,9 @@ class TelaGeral(Screen):
         card = BoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            height=290,
-            padding=[15, 12, 15, 12],
-            spacing=6,
+            height=dp(290),
+            padding=[dp(15), dp(12), dp(15), dp(12)],
+            spacing=dp(6),
         )
 
         cor_selo = COR_LARANJA if item["plataforma"] == "Shopee" else COR_AMARELO
@@ -539,8 +540,8 @@ class TelaGeral(Screen):
         selo = Label(
             text=item["plataforma"].upper(),
             size_hint_y=None,
-            height=28,
-            font_size=15,
+            height=dp(28),
+            font_size=sp(15),
             color=cor_selo,
         )
         card.add_widget(selo)
@@ -548,8 +549,8 @@ class TelaGeral(Screen):
         nome = Label(
             text=item["nome"],
             size_hint_y=None,
-            height=64,
-            font_size=16,
+            height=dp(64),
+            font_size=sp(16),
             halign="left",
             valign="middle",
             color=COR_TEXTO,
@@ -567,8 +568,8 @@ class TelaGeral(Screen):
         info = Label(
             text="\n".join(linhas),
             size_hint_y=None,
-            height=110,
-            font_size=14,
+            height=dp(110),
+            font_size=sp(14),
             halign="left",
             valign="top",
             color=COR_SECUNDARIA,
@@ -579,8 +580,8 @@ class TelaGeral(Screen):
         abrir = Button(
             text="ABRIR PRODUTO",
             size_hint_y=None,
-            height=48,
-            font_size=15,
+            height=dp(48),
+            font_size=sp(15),
             background_normal="",
             background_color=cor_selo,
             color=(0.08, 0.08, 0.08, 1),
@@ -592,8 +593,8 @@ class TelaGeral(Screen):
         campanha = Button(
             text="✨ CRIAR CAMPANHA COM IA",
             size_hint_y=None,
-            height=48,
-            font_size=14,
+            height=dp(48),
+            font_size=sp(14),
             background_normal="",
             background_color=COR_LARANJA,
             color=COR_TEXTO,
@@ -639,15 +640,15 @@ class TelaManual(Screen):
 
         layout = BoxLayout(
             orientation="vertical",
-            padding=[18, 18, 18, 18],
-            spacing=8,
+            padding=[dp(18), dp(18), dp(18), dp(18)],
+            spacing=dp(8),
         )
 
         voltar = Button(
             text="< VOLTAR",
             size_hint_y=None,
-            height=52,
-            font_size=16,
+            height=dp(52),
+            font_size=sp(16),
             background_normal="",
             background_color=COR_FUNDO_CARD,
             color=COR_TEXTO,
@@ -658,8 +659,8 @@ class TelaManual(Screen):
         titulo = Label(
             text="➕ ADICIONAR PRODUTO",
             size_hint_y=None,
-            height=38,
-            font_size=20,
+            height=dp(38),
+            font_size=sp(20),
             color=COR_TEXTO,
         )
         layout.add_widget(titulo)
@@ -668,8 +669,8 @@ class TelaManual(Screen):
         linha_plataformas = BoxLayout(
             orientation="horizontal",
             size_hint_y=None,
-            height=56,
-            spacing=8,
+            height=dp(56),
+            spacing=dp(8),
         )
         self.botoes_plataforma = {}
         for nome_plat in self.PLATAFORMAS:
@@ -693,22 +694,22 @@ class TelaManual(Screen):
             hint_text="Cole o link do produto aqui...",
             multiline=False,
             size_hint_y=None,
-            height=56,
-            font_size=15,
+            height=dp(56),
+            font_size=sp(15),
             background_normal="",
             background_color=(0.08, 0.10, 0.13, 1),
             foreground_color=COR_TEXTO,
             hint_text_color=(0.55, 0.58, 0.64, 1),
             cursor_color=COR_LARANJA,
-            padding=[12, 15],
+            padding=[dp(12), dp(15)],
         )
         layout.add_widget(self.campo_link)
 
         buscar = Button(
             text="🔍 BUSCAR DADOS AUTOMATICAMENTE",
             size_hint_y=None,
-            height=52,
-            font_size=14,
+            height=dp(52),
+            font_size=sp(14),
             background_normal="",
             background_color=COR_AMARELO,
             color=(0.08, 0.08, 0.08, 1),
@@ -719,8 +720,8 @@ class TelaManual(Screen):
         self.status_busca = Label(
             text="",
             size_hint_y=None,
-            height=40,
-            font_size=13,
+            height=dp(40),
+            font_size=sp(13),
             halign="left",
             valign="top",
             color=COR_SECUNDARIA,
@@ -734,14 +735,14 @@ class TelaManual(Screen):
             hint_text="Nome do produto",
             multiline=False,
             size_hint_y=None,
-            height=56,
-            font_size=15,
+            height=dp(56),
+            font_size=sp(15),
             background_normal="",
             background_color=(0.08, 0.10, 0.13, 1),
             foreground_color=COR_TEXTO,
             hint_text_color=(0.55, 0.58, 0.64, 1),
             cursor_color=COR_LARANJA,
-            padding=[12, 15],
+            padding=[dp(12), dp(15)],
         )
         layout.add_widget(self.campo_nome)
 
@@ -749,15 +750,15 @@ class TelaManual(Screen):
             hint_text="Preco (ex: 79,90)",
             multiline=False,
             size_hint_y=None,
-            height=56,
-            font_size=15,
+            height=dp(56),
+            font_size=sp(15),
             input_filter=None,
             background_normal="",
             background_color=(0.08, 0.10, 0.13, 1),
             foreground_color=COR_TEXTO,
             hint_text_color=(0.55, 0.58, 0.64, 1),
             cursor_color=COR_LARANJA,
-            padding=[12, 15],
+            padding=[dp(12), dp(15)],
         )
         layout.add_widget(self.campo_preco)
 
@@ -765,22 +766,22 @@ class TelaManual(Screen):
             hint_text="Comissao/observacao (opcional)",
             multiline=False,
             size_hint_y=None,
-            height=56,
-            font_size=15,
+            height=dp(56),
+            font_size=sp(15),
             background_normal="",
             background_color=(0.08, 0.10, 0.13, 1),
             foreground_color=COR_TEXTO,
             hint_text_color=(0.55, 0.58, 0.64, 1),
             cursor_color=COR_LARANJA,
-            padding=[12, 15],
+            padding=[dp(12), dp(15)],
         )
         layout.add_widget(self.campo_comissao)
 
         criar = Button(
             text="✨ CRIAR CAMPANHA COM IA",
             size_hint_y=None,
-            height=56,
-            font_size=15,
+            height=dp(56),
+            font_size=sp(15),
             background_normal="",
             background_color=COR_LARANJA,
             color=COR_TEXTO,
@@ -791,7 +792,7 @@ class TelaManual(Screen):
         self.resultado_campanha = Label(
             text="",
             size_hint_y=None,
-            font_size=14,
+            font_size=sp(14),
             halign="left",
             valign="top",
             color=COR_TEXTO,
