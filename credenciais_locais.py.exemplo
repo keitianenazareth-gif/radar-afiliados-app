@@ -1,0 +1,12 @@
+# COPIE este arquivo para "credenciais_locais.py" (sem ".exemplo")
+# e preencha com seus valores reais SE for testar localmente no Pydroid.
+#
+# O arquivo "credenciais_locais.py" (sem ".exemplo") esta no .gitignore
+# e NUNCA deve ser enviado pro GitHub. Para gerar o APK, o workflow
+# cria esse arquivo automaticamente usando os "Secrets" do repositorio
+# - voce nao precisa fazer isso manualmente para gerar o APK.
+
+SHOPEE_APP_ID = ""
+SHOPEE_SECRET = ""
+ML_ACCESS_TOKEN = ""
+GEMINI_API_KEY = ""
