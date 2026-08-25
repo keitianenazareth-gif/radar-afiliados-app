@@ -4,8 +4,6 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-    # Permite clicar em "Run workflow" na aba Actions pra gerar o APK
-    # manualmente, sem precisar dar push.
 
 jobs:
   build:
@@ -28,10 +26,18 @@ jobs:
           GEMINI_API_KEY = "${GEMINI_API_KEY}"
           EOF
 
+      - name: Reaproveitar a chave de assinatura entre builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android
+          key: android-debug-keystore
+
       - name: Compilar o APK
         run: |
+          mkdir -p ~/.android
           docker run --rm \
             -v ${{ github.workspace }}:/home/user/hostcwd \
+            -v ~/.android:/home/user/.android \
             kivy/buildozer android debug
 
       - name: Localizar o APK gerado
