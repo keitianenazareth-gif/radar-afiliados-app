@@ -19,12 +19,19 @@ jobs:
           ML_ACCESS_TOKEN: ${{ secrets.ML_ACCESS_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          cat > credenciais_locais.py << EOF
-          SHOPEE_APP_ID = "${SHOPEE_APP_ID}"
-          SHOPEE_SECRET = "${SHOPEE_SECRET}"
-          ML_ACCESS_TOKEN = "${ML_ACCESS_TOKEN}"
-          GEMINI_API_KEY = "${GEMINI_API_KEY}"
-          EOF
+          python3 << 'PYEOF'
+          import os
+
+          with open("credenciais_locais.py", "w") as f:
+              f.write(f"SHOPEE_APP_ID = {os.environ['SHOPEE_APP_ID']!r}\n")
+              f.write(f"SHOPEE_SECRET = {os.environ['SHOPEE_SECRET']!r}\n")
+              f.write(f"ML_ACCESS_TOKEN = {os.environ.get('ML_ACCESS_TOKEN', '')!r}\n")
+              f.write(f"GEMINI_API_KEY = {os.environ['GEMINI_API_KEY']!r}\n")
+
+          for nome in ["SHOPEE_APP_ID", "SHOPEE_SECRET", "GEMINI_API_KEY"]:
+              valor = os.environ.get(nome, "")
+              print(f"{nome}: {len(valor)} caracteres")
+          PYEOF
 
       - name: Reaproveitar a chave de assinatura entre builds
         uses: actions/cache@v4
