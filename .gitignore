@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .env
 credenciais_locais.py
+.venv312/
