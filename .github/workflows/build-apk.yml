@@ -17,6 +17,9 @@ jobs:
           SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
           SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
           ML_ACCESS_TOKEN: ${{ secrets.ML_ACCESS_TOKEN }}
+          ML_REFRESH_TOKEN: ${{ secrets.ML_REFRESH_TOKEN }}
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python3 << 'PYEOF'
@@ -26,9 +29,12 @@ jobs:
               f.write(f"SHOPEE_APP_ID = {os.environ['SHOPEE_APP_ID']!r}\n")
               f.write(f"SHOPEE_SECRET = {os.environ['SHOPEE_SECRET']!r}\n")
               f.write(f"ML_ACCESS_TOKEN = {os.environ.get('ML_ACCESS_TOKEN', '')!r}\n")
+              f.write(f"ML_REFRESH_TOKEN = {os.environ.get('ML_REFRESH_TOKEN', '')!r}\n")
+              f.write(f"ML_CLIENT_ID = {os.environ.get('ML_CLIENT_ID', '')!r}\n")
+              f.write(f"ML_CLIENT_SECRET = {os.environ.get('ML_CLIENT_SECRET', '')!r}\n")
               f.write(f"GEMINI_API_KEY = {os.environ['GEMINI_API_KEY']!r}\n")
 
-          for nome in ["SHOPEE_APP_ID", "SHOPEE_SECRET", "GEMINI_API_KEY"]:
+          for nome in ["SHOPEE_APP_ID", "SHOPEE_SECRET", "ML_CLIENT_ID", "ML_CLIENT_SECRET", "GEMINI_API_KEY"]:
               valor = os.environ.get(nome, "")
               print(f"{nome}: {len(valor)} caracteres")
           PYEOF

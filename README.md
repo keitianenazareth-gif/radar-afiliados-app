@@ -14,11 +14,15 @@
 ## Credenciais
 
 Cadastre no repositório (`Settings` → `Secrets and variables` → `Actions`
-→ `New repository secret`) estes 4 secrets:
+→ `New repository secret`) estes secrets:
 
 - `SHOPEE_APP_ID`
 - `SHOPEE_SECRET`
 - `ML_ACCESS_TOKEN` (opcional — deixe em branco se ainda não tiver)
+- `ML_REFRESH_TOKEN` (opcional — necessário para o app renovar sozinho o
+  token do Mercado Livre quando expirar)
+- `ML_CLIENT_ID` e `ML_CLIENT_SECRET` (opcionais — também necessários
+  para a renovação automática do token do Mercado Livre)
 - `GEMINI_API_KEY` (grátis em aistudio.google.com/apikey — necessária para o botão "Criar campanha com IA")
 
 O workflow cria automaticamente um arquivo `credenciais_locais.py`

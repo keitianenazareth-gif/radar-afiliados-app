@@ -4,4 +4,9 @@ __pycache__/
 *.pyc
 .env
 credenciais_locais.py
+tokens_ml.json
 .venv312/
+biblioteca.json
+destinos.json
+biblioteca_midias/
+gerar_token_ml.py
