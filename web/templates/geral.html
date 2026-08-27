@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Visão Geral - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>⭐ VISÃO GERAL</h1>
+    <div class="status" id="status"></div>
+
+    <div id="resultados"></div>
+
+    {% include "_modal_campanha.html" %}
+{% endblock %}
+{% block script %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+    const statusEl = document.getElementById("status");
+
+    function formatarMoeda(valor) {
+        return "R$ " + Number(valor || 0).toFixed(2);
+    }
+
+    function renderizarResultados(itens) {
+        const container = document.getElementById("resultados");
+        container.innerHTML = "";
+        statusEl.textContent = itens.length + " oportunidades encontradas " +
+            "(Mercado Livre indisponivel no momento - limitacao da API)";
+
+        if (itens.length === 0) {
+            container.innerHTML = '<p class="linhas-info">Nenhum produto encontrado.\nVerifique suas credenciais.</p>';
+            return;
+        }
+
+        itens.forEach((item) => {
+            const card = document.createElement("div");
+            card.className = "card";
+
+            const linhas = [
+                "Preco: " + formatarMoeda(item.preco),
+                "Comissao: " + item.comissao_texto,
+                "Vendas: " + item.vendas,
+                "Nota: " + Number(item.nota).toFixed(1) + " / 100",
+            ];
+
+            card.innerHTML =
+                '<strong>' + item.plataforma.toUpperCase() + '</strong>' +
+                '<p>' + item.nome + '</p>' +
+                '<p class="linhas-info">' + linhas.join("\n") + '</p>' +
+                '<a class="botao botao-primario" href="' + (item.link || "#") + '" target="_blank">ABRIR PRODUTO</a>' +
+                '<button class="botao botao-destaque">✨ CRIAR CAMPANHA COM IA</button>';
+
+            card.querySelector(".botao-destaque").addEventListener("click", () => {
+                gerarCampanha(item);
+            });
+
+            container.appendChild(card);
+        });
+    }
+
+    buscarProdutos("/api/geral/buscar", {}, statusEl, renderizarResultados);
+</script>
+{% endblock %}

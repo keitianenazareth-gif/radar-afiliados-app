@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block titulo %}Shopee - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>SHOPEE</h1>
+    <div class="status" id="status"></div>
+
+    <input type="text" id="termo-pesquisa" placeholder="Digite um produto para pesquisar...">
+
+    <button class="botao-opcao" onclick="buscar('1')">Produtos virais<br><small>Encontre produtos com alto volume de vendas</small></button>
+    <button class="botao-opcao" onclick="buscar('2')">Maior comissao extra<br><small>Produtos com melhor retorno por venda</small></button>
+    <button class="botao-opcao" onclick="buscar('3')">Promocoes<br><small>Ofertas e descontos em destaque</small></button>
+    <button class="botao-opcao" onclick="buscar('4')">Procurar produto<br><small>Pesquise uma categoria especifica</small></button>
+    <button class="botao-opcao" onclick="buscar('5')">Melhores oportunidades<br><small>Ranking dos produtos mais promissores</small></button>
+
+    <div id="resultados"></div>
+
+    {% include "_modal_campanha.html" %}
+{% endblock %}
+{% block script %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+    const statusEl = document.getElementById("status");
+
+    function buscar(opcao) {
+        let termo = "";
+        if (opcao === "4") {
+            termo = document.getElementById("termo-pesquisa").value.trim();
+            if (!termo) {
+                document.getElementById("termo-pesquisa").placeholder = "Digite o produto antes de pesquisar";
+                return;
+            }
+        }
+        buscarProdutos("/api/shopee/buscar", { opcao: opcao, termo: termo }, statusEl, renderizarResultados);
+    }
+
+    function formatarMoeda(valor) {
+        return "R$ " + Number(valor || 0).toFixed(2);
+    }
+
+    function renderizarResultados(itens) {
+        const container = document.getElementById("resultados");
+        container.innerHTML = "";
+
+        if (itens.length === 0) {
+            container.innerHTML = '<p class="linhas-info">Nenhum produto encontrado.</p>';
+            return;
+        }
+
+        itens.forEach((produto) => {
+            const card = document.createElement("div");
+            card.className = "card";
+
+            let linhas = [
+                "Preco: " + formatarMoeda(produto.priceMin),
+                "Desconto: " + (produto.priceDiscountRate || 0) + "%",
+                "Vendas: " + (produto.sales || 0),
+                "Comissao total: " + ((produto.commissionRate || 0) * 100).toFixed(1) + "%",
+                "Comissao extra: " + ((produto.sellerCommissionRate || 0) * 100).toFixed(1) + "%",
+                "Valor da comissao: " + formatarMoeda(produto.commission),
+            ];
+
+            if (produto.nota !== null && produto.nota !== undefined) {
+                linhas.push("Nota: " + produto.nota + " / 100");
+                linhas.push("Classificacao: " + produto.classificacao);
+                if (produto.motivos && produto.motivos.length) {
+                    linhas.push("Motivos: " + produto.motivos.join(" | "));
+                }
+            }
+
+            card.innerHTML =
+                '<strong>TOP ' + produto.posicao + '</strong>' +
+                '<p>' + (produto.productName || "Produto sem nome") + '</p>' +
+                '<p class="linhas-info">' + linhas.join("\n") + '</p>' +
+                '<a class="botao botao-primario" href="' + (produto.offerLink || "#") + '" target="_blank">ABRIR PRODUTO</a>' +
+                '<button class="botao botao-destaque">✨ CRIAR CAMPANHA COM IA</button>';
+
+            card.querySelector(".botao-destaque").addEventListener("click", () => {
+                gerarCampanha({
+                    plataforma: "Shopee",
+                    nome: produto.productName || "Produto",
+                    preco: produto.priceMin,
+                    comissao_texto: formatarMoeda(produto.commission),
+                    vendas: produto.sales,
+                    link: produto.offerLink || "",
+                });
+            });
+
+            container.appendChild(card);
+        });
+    }
+</script>
+{% endblock %}

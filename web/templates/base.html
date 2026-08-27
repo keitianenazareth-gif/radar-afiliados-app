@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}Radar Afiliados{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+    <div class="container">
+        {% block conteudo %}{% endblock %}
+    </div>
+    {% block script %}{% endblock %}
+</body>
+</html>

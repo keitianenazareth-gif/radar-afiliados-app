@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}Biblioteca - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>📚 BIBLIOTECA</h1>
+    <div class="status">{{ itens|length }} itens na biblioteca</div>
+
+    <form action="{{ url_for('biblioteca_importar') }}" method="post" enctype="multipart/form-data" class="card">
+        <strong>Importar mídia</strong>
+        <p class="linhas-info">Escolha o tipo e selecione o arquivo do seu notebook.</p>
+        <select name="tipo" style="padding:10px; margin-bottom:10px; width:100%; background:var(--cor-campo); color:var(--cor-texto); border:1px solid #2a3038; border-radius:8px;">
+            <option value="imagem">Imagem</option>
+            <option value="video">Video</option>
+        </select>
+        <input type="file" name="arquivo" accept="image/*,video/*" required>
+        <button type="submit" class="botao botao-destaque">IMPORTAR</button>
+    </form>
+
+    <div class="card">
+        <strong>Destinos de postagem</strong>
+        <div class="linha" style="margin:10px 0;">
+            {% for destino in destinos %}
+            <form action="{{ url_for('biblioteca_remover_destino') }}" method="post" class="inline">
+                <input type="hidden" name="nome" value="{{ destino }}">
+                <button type="submit" class="botao-toggle" title="Remover">{{ destino }} ✕</button>
+            </form>
+            {% else %}
+            <span class="linhas-info">Nenhum destino cadastrado ainda.</span>
+            {% endfor %}
+        </div>
+        <form action="{{ url_for('biblioteca_adicionar_destino') }}" method="post" class="rodape-form">
+            <input type="text" name="nome" placeholder="Novo destino (ex: TikTok)...">
+            <button type="submit" class="botao botao-destaque">+</button>
+        </form>
+    </div>
+
+    <div class="grade-biblioteca">
+        {% for item in itens %}
+        <div class="card">
+            {% if item.tipo == "imagem" %}
+                <img class="preview-midia" src="{{ url_for('biblioteca_midia', item_id=item.id) }}" alt="">
+            {% else %}
+                <video class="preview-midia" src="{{ url_for('biblioteca_midia', item_id=item.id) }}" controls preload="metadata"></video>
+            {% endif %}
+
+            <p class="linhas-info">{{ item.nome_original }}</p>
+
+            <p><small>Postar em:</small></p>
+            <div class="linha">
+                {% for destino in destinos %}
+                <form action="{{ url_for('biblioteca_alternar_destino') }}" method="post" class="inline">
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <input type="hidden" name="destino" value="{{ destino }}">
+                    <button type="submit" class="botao-toggle {{ 'ativo' if destino in item.destinos else '' }}">{{ destino }}</button>
+                </form>
+                {% else %}
+                <span class="linhas-info">Nenhum destino cadastrado ainda.</span>
+                {% endfor %}
+            </div>
+
+            <div class="linha" style="margin-top:10px;">
+                <a class="botao botao-verde" href="{{ url_for('biblioteca_midia', item_id=item.id) }}" download onclick="window.open('https://web.whatsapp.com/', '_blank')">📤 BAIXAR E ABRIR WHATSAPP</a>
+                <form action="{{ url_for('biblioteca_excluir', item_id=item.id) }}" method="post" class="inline">
+                    <button type="submit" class="botao botao-secundario">EXCLUIR</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="linhas-info">Nenhuma midia ainda. Importe um arquivo do seu notebook acima.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

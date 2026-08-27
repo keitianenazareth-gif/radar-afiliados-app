@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block titulo %}{{ nome_plataforma }} - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>{{ nome_plataforma.upper() }}</h1>
+    {% if aviso %}<p class="linhas-info">{{ aviso }}</p>{% endif %}
+
+    <input type="text" id="campo-link" placeholder="Cole o link do produto aqui...">
+    <button class="botao botao-destaque" onclick="buscarDados()">🔍 BUSCAR DADOS AUTOMATICAMENTE</button>
+    <div class="status" id="status-busca"></div>
+
+    <input type="text" id="campo-nome" placeholder="Nome do produto">
+    <input type="text" id="campo-preco" placeholder="Preco (ex: 79,90)">
+    <input type="text" id="campo-comissao" placeholder="Comissao/observacao (opcional)">
+
+    <button class="botao botao-primario" onclick="criarCampanha()">✨ CRIAR CAMPANHA COM IA</button>
+
+    {% include "_modal_campanha.html" %}
+{% endblock %}
+{% block script %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+    const nomePlataforma = {{ nome_plataforma|tojson }};
+
+    function buscarDados() {
+        const link = document.getElementById("campo-link").value.trim();
+        const statusBusca = document.getElementById("status-busca");
+        if (!link) {
+            statusBusca.textContent = "Cole um link antes de buscar.";
+            return;
+        }
+        statusBusca.textContent = "Buscando...";
+
+        fetch("/api/manual/buscar-dados", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ link: link }),
+        })
+            .then((resposta) => resposta.json())
+            .then((dados) => {
+                if (dados.sucesso) {
+                    document.getElementById("campo-nome").value = dados.nome;
+                    if (dados.preco_texto) {
+                        document.getElementById("campo-preco").value = dados.preco_texto;
+                    }
+                    statusBusca.textContent = "Dados encontrados. Confira antes de continuar.";
+                } else {
+                    statusBusca.textContent = dados.motivo;
+                }
+            })
+            .catch((erro) => {
+                statusBusca.textContent = "Erro ao buscar: " + erro;
+            });
+    }
+
+    function criarCampanha() {
+        const nome = document.getElementById("campo-nome").value.trim();
+        const link = document.getElementById("campo-link").value.trim();
+        const statusBusca = document.getElementById("status-busca");
+
+        if (!nome || !link) {
+            statusBusca.textContent = "Preencha ao menos o nome do produto e o link.";
+            return;
+        }
+
+        gerarCampanha({
+            plataforma: nomePlataforma,
+            nome: nome,
+            preco_texto: document.getElementById("campo-preco").value.trim(),
+            comissao_texto: document.getElementById("campo-comissao").value.trim(),
+            link: link,
+        });
+    }
+</script>
+{% endblock %}

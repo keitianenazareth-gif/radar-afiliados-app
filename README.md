@@ -31,3 +31,19 @@ Git — fica só dentro do APK final, no seu celular.
 
 **Nunca** edite `credenciais_locais.py.exemplo` com valores reais e
 suba pro GitHub — ele é só um modelo.
+
+## Versão web (local, complementar ao app)
+
+Mesmas 5 plataformas + Biblioteca, rodando no navegador do notebook.
+Usa os mesmos módulos e o mesmo `credenciais_locais.py` do app — não
+substitui o Android, é só mais uma forma de acessar.
+
+```
+pip install -r web/requirements.txt
+python web/app_web.py
+```
+
+Depois abra `http://localhost:5000` no navegador. Pra funcionar de
+verdade (buscar produtos, gerar campanha), o `credenciais_locais.py`
+precisa estar preenchido na raiz do projeto (copie de
+`credenciais_locais.py.exemplo`).
