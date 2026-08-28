@@ -13,3 +13,7 @@ ML_REFRESH_TOKEN = ""
 ML_CLIENT_ID = ""
 ML_CLIENT_SECRET = ""
 GEMINI_API_KEY = ""
+
+# Login da versao web (Flask). Senha vazia = acesso livre (uso local).
+WEB_USUARIO = "revisor"
+WEB_SENHA = ""

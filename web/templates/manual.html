@@ -21,6 +21,7 @@
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script>
     const nomePlataforma = {{ nome_plataforma|tojson }};
+    let imagemProduto = "";
 
     function buscarDados() {
         const link = document.getElementById("campo-link").value.trim();
@@ -40,6 +41,7 @@
             .then((dados) => {
                 if (dados.sucesso) {
                     document.getElementById("campo-nome").value = dados.nome;
+                    imagemProduto = dados.imagem || "";
                     if (dados.preco_texto) {
                         document.getElementById("campo-preco").value = dados.preco_texto;
                     }
@@ -69,6 +71,7 @@
             preco_texto: document.getElementById("campo-preco").value.trim(),
             comissao_texto: document.getElementById("campo-comissao").value.trim(),
             link: link,
+            imagem: imagemProduto,
         });
     }
 </script>

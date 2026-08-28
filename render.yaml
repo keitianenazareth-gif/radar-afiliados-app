@@ -1,0 +1,35 @@
+# Deploy da versao web (pasta web/) no Render.
+# Painel: https://dashboard.render.com  ->  New  ->  Blueprint  ->  aponta pro repo.
+#
+# As credenciais (sync: false) NAO ficam neste arquivo nem no Git: sao
+# preenchidas no painel do Render, na aba Environment do servico.
+services:
+  - type: web
+    name: radar-afiliados-web
+    runtime: python
+    plan: free                       # troque para "standard" se o video der OOM
+    region: oregon
+    buildCommand: pip install -r web/requirements.txt
+    startCommand: gunicorn web.app_web:app --workers 1 --timeout 300 --bind 0.0.0.0:$PORT
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: FLASK_DEBUG
+        value: "0"
+      # --- credenciais: preencher no painel (valores nunca vao pro Git) ---
+      - key: SHOPEE_APP_ID
+        sync: false
+      - key: SHOPEE_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: WEB_USUARIO
+        sync: false
+      - key: WEB_SENHA
+        sync: false
+      # --- opcional: reduzir o video se a memoria apertar no plano free ---
+      # - key: VIDEO_LARGURA
+      #   value: "720"
+      # - key: VIDEO_ALTURA
+      #   value: "1280"

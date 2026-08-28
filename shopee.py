@@ -132,6 +132,7 @@ def _consultar_api(keyword, sort_type, is_ams):
       shopeeCommissionRate
       commission
       offerLink
+      imageUrl
     }}
   }}
 }}

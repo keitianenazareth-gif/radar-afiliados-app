@@ -6,13 +6,23 @@ navegador do notebook.
 Rodar: python web/app_web.py  ->  http://localhost:5000
 """
 
+import hmac
 import os
 import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 from werkzeug.utils import secure_filename
 
 import biblioteca
@@ -20,6 +30,43 @@ import produto_manual
 from shopee import buscar_produtos, numero
 
 app = Flask(__name__)
+
+# ---------------------------------------------------------------------------
+# Login (HTTP Basic). Usuario/senha vem de credenciais_locais.py ou de
+# variaveis de ambiente. Se a senha ficar vazia, o login fica DESLIGADO
+# (uso local). Preencha ao expor o site para fora (ngrok etc.).
+# ---------------------------------------------------------------------------
+
+try:
+    from credenciais_locais import WEB_USUARIO as _WEB_USUARIO
+except ImportError:
+    _WEB_USUARIO = ""
+try:
+    from credenciais_locais import WEB_SENHA as _WEB_SENHA
+except ImportError:
+    _WEB_SENHA = ""
+
+WEB_USUARIO = os.environ.get("WEB_USUARIO") or _WEB_USUARIO or "revisor"
+WEB_SENHA = os.environ.get("WEB_SENHA") or _WEB_SENHA or ""
+
+
+@app.before_request
+def _exigir_login():
+    if not WEB_SENHA:
+        return None  # login desligado
+    cred = request.authorization
+    if (
+        cred
+        and cred.type == "basic"
+        and hmac.compare_digest(cred.username or "", WEB_USUARIO)
+        and hmac.compare_digest(cred.password or "", WEB_SENHA)
+    ):
+        return None
+    return Response(
+        "Acesso restrito.",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Radar Afiliados"'},
+    )
 
 AVISO_ML = (
     "Busca automatica indisponivel: a API do Mercado Livre nao libera "
@@ -121,6 +168,7 @@ def api_geral_buscar():
             "vendas": int(numero(produto.get("sales"))),
             "nota": produto.get("nota") or 0,
             "link": str(produto.get("offerLink") or ""),
+            "imagem": str(produto.get("imageUrl") or ""),
         }
         for produto in produtos
     ]
@@ -161,6 +209,45 @@ def api_campanha():
         return jsonify({"sucesso": False, "erro": f"Erro ao gerar campanha: {erro}"})
 
     return jsonify({"sucesso": True, "texto": texto})
+
+
+@app.route("/api/campanha/video", methods=["POST"])
+def api_campanha_video():
+    """Gera um video curto (mp4) de divulgacao: foto do produto +
+    texto na tela + narracao. Sincrono - pode levar ~30-60s."""
+    dados = request.get_json(force=True)
+
+    if not dados.get("nome"):
+        return jsonify({"sucesso": False, "erro": "Produto sem nome."})
+
+    try:
+        from campanhas_ia import gerar_roteiro_video
+
+        from web.video_campanha import montar_video
+
+        roteiro = gerar_roteiro_video(
+            plataforma=dados.get("plataforma", ""),
+            produto=dados.get("nome", ""),
+            preco=_texto_preco(dados),
+            comissao=dados.get("comissao_texto", ""),
+            vendas=str(dados.get("vendas", "") or ""),
+            link=dados.get("link", ""),
+        )
+        caminho_mp4, motor_tts = montar_video(dados, roteiro)
+    except RuntimeError as erro:
+        return jsonify({"sucesso": False, "erro": str(erro)})
+    except Exception as erro:  # noqa: BLE001
+        return jsonify({"sucesso": False, "erro": f"Erro ao gerar video: {erro}"})
+
+    nome_arquivo = os.path.basename(caminho_mp4)
+    return jsonify(
+        {
+            "sucesso": True,
+            "video_url": url_for("static", filename=f"videos/{nome_arquivo}"),
+            "narracao": motor_tts,
+            "roteiro": roteiro,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -215,4 +302,11 @@ def biblioteca_midia(item_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # threaded=True: a geracao de video (dezenas de segundos) nao trava
+    # o resto do site enquanto roda.
+    #
+    # debug fica LIGADO por padrao (uso local). Ao expor o site para fora
+    # (ngrok etc.), rode com  FLASK_DEBUG=0  -> desliga o debugger do
+    # Werkzeug, que permite execucao de codigo remoto se ficar acessivel.
+    debug = os.environ.get("FLASK_DEBUG", "1") != "0"
+    app.run(debug=debug, port=5000, threaded=True)
