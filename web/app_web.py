@@ -52,6 +52,11 @@ WEB_SENHA = os.environ.get("WEB_SENHA") or _WEB_SENHA or ""
 
 @app.before_request
 def _exigir_login():
+    # /healthz fica sempre aberta: e' o que o Render usa para saber que
+    # o servico esta no ar (se pedisse login, o Render veria 401 e nao
+    # rotearia trafego para o app).
+    if request.path == "/healthz":
+        return None
     if not WEB_SENHA:
         return None  # login desligado
     cred = request.authorization
@@ -99,6 +104,11 @@ def _encontrar_item_biblioteca(item_id):
 # ---------------------------------------------------------------------------
 # Paginas
 # ---------------------------------------------------------------------------
+
+@app.route("/healthz")
+def healthz():
+    return "ok", 200
+
 
 @app.route("/")
 def principal():

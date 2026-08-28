@@ -11,6 +11,7 @@ services:
     region: oregon
     buildCommand: pip install -r web/requirements.txt
     startCommand: gunicorn web.app_web:app --workers 1 --threads 4 --timeout 300 --bind 0.0.0.0:$PORT
+    healthCheckPath: /healthz
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
