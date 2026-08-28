@@ -10,7 +10,7 @@ services:
     plan: free                       # troque para "standard" se o video der OOM
     region: oregon
     buildCommand: pip install -r web/requirements.txt
-    startCommand: gunicorn web.app_web:app --workers 1 --timeout 300 --bind 0.0.0.0:$PORT
+    startCommand: gunicorn web.app_web:app --workers 1 --threads 4 --timeout 300 --bind 0.0.0.0:$PORT
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
