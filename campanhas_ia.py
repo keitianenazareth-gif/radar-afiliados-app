@@ -256,50 +256,58 @@ def gerar_roteiro_video(
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.7,
-            # Folga para os tokens de "pensamento" do gemini-3.x + o JSON.
-            "maxOutputTokens": 2048,
+            # O gemini-3.x "pensa" antes de responder e esses tokens
+            # contam no limite. O pensamento as vezes passa de 1800
+            # tokens; com folga ampla o JSON nao sai truncado.
+            "maxOutputTokens": 4096,
             "responseMimeType": "application/json",
             "responseSchema": _ESQUEMA_ROTEIRO,
         },
     }
 
-    try:
-        resposta = requests.post(
-            f"{URL_BASE}?key={GEMINI_API_KEY}",
-            json=corpo,
-            timeout=30,
-        )
-    except requests.RequestException as erro:
-        raise RuntimeError(f"Erro de conexao com o Gemini: {erro}")
-
-    if resposta.status_code == 429:
-        raise RuntimeError(
-            "Limite gratuito do Gemini atingido no momento. "
-            "Aguarde um pouco e tente novamente."
-        )
-
-    if resposta.status_code == 503:
-        raise RuntimeError(
-            "O Gemini esta com alta demanda no momento (HTTP 503). "
-            "Aguarde alguns segundos e tente novamente."
-        )
-
-    if resposta.status_code != 200:
-        raise RuntimeError(
-            f"Erro do Gemini (HTTP {resposta.status_code}): "
-            f"{resposta.text[:200]}"
-        )
-
     import json
+    import time as _time
 
-    try:
-        candidato = resposta.json()["candidates"][0]
-        partes = candidato["content"]["parts"]
-        texto = "".join(p.get("text", "") for p in partes)
-        roteiro = json.loads(texto)
-    except (KeyError, IndexError, ValueError):
+    roteiro = None
+    ultimo_erro = ""
+    # O modelo ocasionalmente devolve JSON truncado/invalido; tenta de novo.
+    for tentativa in range(3):
+        try:
+            resposta = requests.post(
+                f"{URL_BASE}?key={GEMINI_API_KEY}", json=corpo, timeout=40
+            )
+        except requests.RequestException as erro:
+            raise RuntimeError(f"Erro de conexao com o Gemini: {erro}")
+
+        if resposta.status_code == 429:
+            raise RuntimeError(
+                "Limite gratuito do Gemini atingido no momento. "
+                "Aguarde um pouco e tente novamente."
+            )
+        if resposta.status_code in (500, 503):
+            ultimo_erro = f"HTTP {resposta.status_code}"
+            _time.sleep(2 * (tentativa + 1))
+            continue
+        if resposta.status_code != 200:
+            raise RuntimeError(
+                f"Erro do Gemini (HTTP {resposta.status_code}): "
+                f"{resposta.text[:200]}"
+            )
+
+        try:
+            candidato = resposta.json()["candidates"][0]
+            partes = candidato["content"]["parts"]
+            texto = "".join(p.get("text", "") for p in partes)
+            roteiro = json.loads(texto)
+            break
+        except (KeyError, IndexError, ValueError) as erro:
+            ultimo_erro = str(erro) or "JSON invalido"
+            _time.sleep(1)
+
+    if roteiro is None:
         raise RuntimeError(
-            "O Gemini nao retornou um roteiro valido. Tente novamente."
+            "O Gemini nao retornou um roteiro valido. Tente novamente. "
+            f"({ultimo_erro})"
         )
 
     cenas = [
