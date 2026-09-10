@@ -1,7 +1,7 @@
-# CLAUDE.md — Radar Afiliados
+# AGENTS.md — Radar Afiliados
 
-Contexto do projeto para o Claude. Fale sempre em **português (Brasil)**.
-Preferências gerais sobre mim e meu jeito de trabalhar estão em `C:\Users\keiti\.claude\CLAUDE.md`.
+Contexto do projeto para o Codex. Fale sempre em **português (Brasil)**.
+Preferências gerais sobre mim e meu jeito de trabalhar estão em `C:\Users\keiti\.Codex\AGENTS.md`.
 Resumo do essencial: sou **analista administrativa, não programadora** — explique o plano
 antes de implementar, trabalhe em passos pequenos, diagnostique a causa antes de consertar,
 e me dê comandos prontos para Windows/PowerShell.
@@ -14,12 +14,11 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 - **Biblioteca:** coleção de mídias (imagens/vídeos), com importação da galeria do celular
   e recebimento via "Compartilhar" do Android.
 - **Campanha com IA:** roteiro/legenda gerados pelo **Gemini** (`campanhas_ia.py`) e
-  **vídeo curto** de 15–30s gerado pela **API da Creatify** (`web/video_campanha.py` —
-  o Radar manda o link do produto, a Creatify devolve a URL do vídeo pronto).
+  **vídeo curto** de 15–30s gerado pela **API da Creatify** (`web/video_campanha.py`).
 - **Edição com IA:** 6 fluxos de análise/melhoria de roteiro e vídeo via Gemini
   (`web/edicao_ia.py`), na aba **Edição** (`/edicao`).
 - **Publicar no Instagram:** botão na tela de aprovação do vídeo posta o Reel em
-  @clubedoquero via Instagram Graph API (`web/instagram_publish.py`).
+  @clubedoquero (`web/instagram_publish.py`).
 - **Envio para WhatsApp** (normal ou Business) a partir do app Android.
 
 ## Duas frentes, mesmo código
@@ -64,8 +63,7 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 - `credenciais_locais.py.exemplo` é **modelo** — nunca preencher com valores reais.
 - Chaves usadas: `SHOPEE_APP_ID`, `SHOPEE_SECRET`, `GEMINI_API_KEY`,
   `ML_ACCESS_TOKEN`, `ML_REFRESH_TOKEN`, `ML_CLIENT_ID`, `ML_CLIENT_SECRET`,
-  `CREATIFY_API_ID`, `CREATIFY_API_KEY` (geração de vídeo),
-  `INSTAGRAM_USER_ID`, `INSTAGRAM_ACCESS_TOKEN` (publicar Reel).
+  `CREATIFY_API_ID`, `CREATIFY_API_KEY`, `INSTAGRAM_USER_ID`, `INSTAGRAM_ACCESS_TOKEN`.
 - **Mercado Livre (OAuth):** o `access_token` expira; o app renova sozinho usando o
   `refresh_token` + `ML_CLIENT_ID`/`ML_CLIENT_SECRET` e salva os novos tokens em
   `tokens_ml.json` para persistir entre usos. Gerar token inicial: `gerar_token_ml.py`

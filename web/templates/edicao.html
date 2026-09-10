@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Edição - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>✏️ EDIÇÃO</h1>
+    <p class="subtitulo">
+        Cole o roteiro, a descrição do material bruto ou do vídeo e escolha
+        um fluxo. A IA (mesmo Gemini das campanhas) devolve a análise.
+    </p>
+
+    <form method="post">
+        <label class="linhas-info" for="fluxo">Fluxo</label>
+        <select id="fluxo" name="fluxo">
+            {% for chave, rotulo in fluxos %}
+            <option value="{{ chave }}" {% if chave == fluxo_escolhido %}selected{% endif %}>
+                {{ rotulo }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <label class="linhas-info" for="texto">Texto</label>
+        <textarea id="texto" name="texto" placeholder="Cole aqui o roteiro / a descrição do material / do vídeo...">{{ texto_enviado }}</textarea>
+
+        <button type="submit" class="botao botao-primario">GERAR ANÁLISE</button>
+    </form>
+
+    {% if erro %}
+    <p class="linhas-info" style="color: var(--cor-laranja)">{{ erro }}</p>
+    {% endif %}
+
+    {% if resultado %}
+    <h3 class="linhas-info">Resultado</h3>
+    <div class="resultado-campanha">{{ resultado }}</div>
+    {% endif %}
+{% endblock %}

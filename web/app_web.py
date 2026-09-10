@@ -144,6 +144,43 @@ def biblioteca_pagina():
     )
 
 
+@app.route("/edicao", methods=["GET", "POST"])
+def edicao():
+    """Aba "Edicao": caixa de texto + seletor com os 6 fluxos de IA
+    (edicao_ia.rodar_fluxo). Formulario simples, sem JS - o POST recarrega
+    a pagina com o resultado embaixo."""
+    from web.edicao_ia import FLUXOS_ROTULOS, rodar_fluxo
+
+    resultado = None
+    erro = None
+    fluxo_escolhido = ""
+    texto_enviado = ""
+
+    if request.method == "POST":
+        fluxo_escolhido = request.form.get("fluxo", "")
+        texto_enviado = request.form.get("texto", "").strip()
+        if not texto_enviado:
+            erro = "Escreva o texto (roteiro, descricao do material, etc.) antes de enviar."
+        else:
+            try:
+                resultado = rodar_fluxo(fluxo_escolhido, texto_enviado)
+            except ValueError as e:
+                erro = str(e)
+            except RuntimeError as e:
+                erro = str(e)
+            except Exception as e:  # noqa: BLE001
+                erro = f"Erro ao rodar o fluxo: {e}"
+
+    return render_template(
+        "edicao.html",
+        fluxos=FLUXOS_ROTULOS,
+        fluxo_escolhido=fluxo_escolhido,
+        texto_enviado=texto_enviado,
+        resultado=resultado,
+        erro=erro,
+    )
+
+
 # ---------------------------------------------------------------------------
 # API (buscas e campanha) - respostas em JSON, consumidas via fetch() no JS
 # ---------------------------------------------------------------------------
@@ -223,17 +260,29 @@ def api_campanha():
 
 @app.route("/api/campanha/video", methods=["POST"])
 def api_campanha_video():
-    """Gera um video curto (mp4) de divulgacao: foto do produto +
-    texto na tela + narracao. Sincrono - pode levar ~30-60s."""
+    """Gera um video curto de divulgacao pela API da Creatify.
+
+    O Radar so manda o link do produto (e, opcionalmente, a narracao do
+    roteiro do Gemini como texto base) e a Creatify devolve a URL de um
+    video pronto, hospedado por ela. Sincrono - a Creatify costuma levar
+    de 1 a 3 minutos (o Render tem timeout de 300s)."""
     dados = request.get_json(force=True)
 
     if not dados.get("nome"):
         return jsonify({"sucesso": False, "erro": "Produto sem nome."})
 
+    link_produto = dados.get("link", "")
+    if not link_produto:
+        return jsonify(
+            {"sucesso": False, "erro": "Cole o link do produto antes de gerar o video."}
+        )
+
+    # O roteiro do Gemini e opcional aqui: serve de texto base para a
+    # Creatify e de legenda pronta para o Instagram. Se falhar, seguimos
+    # so com o link (a Creatify monta o roteiro sozinha a partir da pagina).
+    roteiro = None
     try:
         from campanhas_ia import gerar_roteiro_video
-
-        from web.video_campanha import montar_video
 
         roteiro = gerar_roteiro_video(
             plataforma=dados.get("plataforma", ""),
@@ -241,23 +290,59 @@ def api_campanha_video():
             preco=_texto_preco(dados),
             comissao=dados.get("comissao_texto", ""),
             vendas=str(dados.get("vendas", "") or ""),
-            link=dados.get("link", ""),
+            link=link_produto,
         )
-        caminho_mp4, motor_tts = montar_video(dados, roteiro)
-    except RuntimeError as erro:
+    except Exception:  # noqa: BLE001 - roteiro e opcional
+        roteiro = None
+
+    try:
+        from web.video_campanha import CreatifyError, gerar_video_produto
+
+        # target_platform sempre "Instagram": o objetivo e um Reel, nao
+        # importa de qual loja (Shopee/Amazon/etc.) veio o produto.
+        video_url = gerar_video_produto(
+            link_produto,
+            roteiro=(roteiro or {}).get("narracao"),
+            plataforma="Instagram",
+        )
+    except CreatifyError as erro:
         return jsonify({"sucesso": False, "erro": str(erro)})
     except Exception as erro:  # noqa: BLE001
         return jsonify({"sucesso": False, "erro": f"Erro ao gerar video: {erro}"})
 
-    nome_arquivo = os.path.basename(caminho_mp4)
     return jsonify(
         {
             "sucesso": True,
-            "video_url": url_for("static", filename=f"videos/{nome_arquivo}"),
-            "narracao": motor_tts,
+            "video_url": video_url,
             "roteiro": roteiro,
         }
     )
+
+
+@app.route("/api/instagram/postar", methods=["POST"])
+def api_instagram_postar():
+    """Publica o video ja aprovado como Reel no Instagram (@clubedoquero).
+
+    Recebe a URL do video (a que a Creatify devolveu) e a legenda (o texto
+    da campanha). Sincrono - o Instagram processa o video antes de publicar
+    (segundos a poucos minutos)."""
+    dados = request.get_json(force=True)
+    video_url = (dados.get("video_url") or "").strip()
+    legenda = (dados.get("legenda") or "").strip()
+
+    if not video_url:
+        return jsonify({"sucesso": False, "erro": "Sem URL de video para publicar."})
+
+    try:
+        from web.instagram_publish import InstagramPublishError, postar_reel
+
+        media_id = postar_reel(video_url, legenda)
+    except InstagramPublishError as erro:
+        return jsonify({"sucesso": False, "erro": str(erro)})
+    except Exception as erro:  # noqa: BLE001
+        return jsonify({"sucesso": False, "erro": f"Erro ao publicar no Instagram: {erro}"})
+
+    return jsonify({"sucesso": True, "media_id": media_id})
 
 
 # ---------------------------------------------------------------------------
