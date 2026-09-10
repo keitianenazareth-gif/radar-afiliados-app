@@ -66,7 +66,7 @@ function gerarVideoCampanha() {
     const botaoIg = document.getElementById("botao-instagram");
     if (botaoIg) botaoIg.style.display = "none";
     document.getElementById("instagram-status").textContent = "";
-    status.textContent = "Gerando video na Creatify... pode levar de 1 a 3 minutos.";
+    status.textContent = "Gerando video... isso pode levar ate 1 minuto (roteiro + narracao + montagem).";
 
     fetch("/api/campanha/video", {
         method: "POST",
@@ -81,12 +81,12 @@ function gerarVideoCampanha() {
                 return;
             }
             videoUrlAtual = dados.video_url;
-            status.textContent = "Video pronto.";
+            status.textContent = "Video pronto (narracao: " + dados.narracao + ").";
             saida.innerHTML =
                 '<video src="' + dados.video_url + '" controls playsinline ' +
                 'style="width:100%;max-width:320px;border-radius:12px;margin-top:8px"></video>' +
                 '<a class="botao botao-primario" href="' + dados.video_url +
-                '" target="_blank" style="display:block;margin-top:8px">ABRIR / BAIXAR VIDEO</a>';
+                '" download style="display:block;margin-top:8px">BAIXAR VIDEO (.mp4)</a>';
             if (botaoIg) botaoIg.style.display = "block";
         })
         .catch((erro) => {

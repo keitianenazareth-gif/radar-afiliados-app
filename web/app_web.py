@@ -260,29 +260,17 @@ def api_campanha():
 
 @app.route("/api/campanha/video", methods=["POST"])
 def api_campanha_video():
-    """Gera um video curto de divulgacao pela API da Creatify.
-
-    O Radar so manda o link do produto (e, opcionalmente, a narracao do
-    roteiro do Gemini como texto base) e a Creatify devolve a URL de um
-    video pronto, hospedado por ela. Sincrono - a Creatify costuma levar
-    de 1 a 3 minutos (o Render tem timeout de 300s)."""
+    """Gera um video curto (mp4) de divulgacao: foto do produto +
+    texto na tela + narracao. Sincrono - pode levar ~30-60s."""
     dados = request.get_json(force=True)
 
     if not dados.get("nome"):
         return jsonify({"sucesso": False, "erro": "Produto sem nome."})
 
-    link_produto = dados.get("link", "")
-    if not link_produto:
-        return jsonify(
-            {"sucesso": False, "erro": "Cole o link do produto antes de gerar o video."}
-        )
-
-    # O roteiro do Gemini e opcional aqui: serve de texto base para a
-    # Creatify e de legenda pronta para o Instagram. Se falhar, seguimos
-    # so com o link (a Creatify monta o roteiro sozinha a partir da pagina).
-    roteiro = None
     try:
         from campanhas_ia import gerar_roteiro_video
+
+        from web.video_campanha import montar_video
 
         roteiro = gerar_roteiro_video(
             plataforma=dados.get("plataforma", ""),
@@ -290,30 +278,20 @@ def api_campanha_video():
             preco=_texto_preco(dados),
             comissao=dados.get("comissao_texto", ""),
             vendas=str(dados.get("vendas", "") or ""),
-            link=link_produto,
+            link=dados.get("link", ""),
         )
-    except Exception:  # noqa: BLE001 - roteiro e opcional
-        roteiro = None
-
-    try:
-        from web.video_campanha import CreatifyError, gerar_video_produto
-
-        # target_platform sempre "Instagram": o objetivo e um Reel, nao
-        # importa de qual loja (Shopee/Amazon/etc.) veio o produto.
-        video_url = gerar_video_produto(
-            link_produto,
-            roteiro=(roteiro or {}).get("narracao"),
-            plataforma="Instagram",
-        )
-    except CreatifyError as erro:
+        caminho_mp4, motor_tts = montar_video(dados, roteiro)
+    except RuntimeError as erro:
         return jsonify({"sucesso": False, "erro": str(erro)})
     except Exception as erro:  # noqa: BLE001
         return jsonify({"sucesso": False, "erro": f"Erro ao gerar video: {erro}"})
 
+    nome_arquivo = os.path.basename(caminho_mp4)
     return jsonify(
         {
             "sucesso": True,
-            "video_url": video_url,
+            "video_url": url_for("static", filename=f"videos/{nome_arquivo}"),
+            "narracao": motor_tts,
             "roteiro": roteiro,
         }
     )

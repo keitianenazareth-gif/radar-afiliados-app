@@ -7,7 +7,7 @@ services:
   - type: web
     name: radar-afiliados-web
     runtime: python
-    plan: free                       # o video agora e renderizado pela Creatify (fora do Render)
+    plan: free                       # troque para "standard" se o video der OOM
     region: oregon
     buildCommand: pip install -r web/requirements.txt
     startCommand: gunicorn web.app_web:app --workers 1 --threads 4 --timeout 300 --bind 0.0.0.0:$PORT
@@ -29,13 +29,13 @@ services:
         sync: false
       - key: WEB_SENHA
         sync: false
-      # --- Creatify (geracao do video) - pegar em app.creatify.ai -> Settings -> API ---
-      - key: CREATIFY_API_ID
-        sync: false
-      - key: CREATIFY_API_KEY
-        sync: false
       # --- Instagram (publicar Reel) - Meta for Developers ---
       - key: INSTAGRAM_USER_ID
         sync: false
       - key: INSTAGRAM_ACCESS_TOKEN
         sync: false
+      # --- opcional: reduzir o video se a memoria apertar no plano free ---
+      # - key: VIDEO_LARGURA
+      #   value: "720"
+      # - key: VIDEO_ALTURA
+      #   value: "1280"

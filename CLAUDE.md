@@ -13,9 +13,9 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 - **Plataformas de busca:** Shopee, Mercado Livre, Amazon, Shein, Temu.
 - **Biblioteca:** coleção de mídias (imagens/vídeos), com importação da galeria do celular
   e recebimento via "Compartilhar" do Android.
-- **Campanha com IA:** roteiro/legenda gerados pelo **Gemini** (`campanhas_ia.py`) e
-  **vídeo curto** de 15–30s gerado pela **API da Creatify** (`web/video_campanha.py` —
-  o Radar manda o link do produto, a Creatify devolve a URL do vídeo pronto).
+- **Campanha com IA:** roteiro gerado pelo **Gemini** (`campanhas_ia.py`), narração em áudio
+  via **TTS** (`web/tts.py`, `edge-tts`) e **vídeo curto** de 15–30s montado a partir das
+  fotos do produto (`web/video_campanha.py`, `moviepy`).
 - **Edição com IA:** 6 fluxos de análise/melhoria de roteiro e vídeo via Gemini
   (`web/edicao_ia.py`), na aba **Edição** (`/edicao`).
 - **Publicar no Instagram:** botão na tela de aprovação do vídeo posta o Reel em
@@ -44,8 +44,8 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
   Abre em `http://localhost:5000`. Precisa do `credenciais_locais.py` preenchido na raiz.
 - Hospedada no **Render** (`render.yaml`, blueprint) → `https://radar-afiliados-web.onrender.com`.
   - Start: `gunicorn web.app_web:app --workers 1 --threads 4 --timeout 300 --bind 0.0.0.0:$PORT`
-  - Health check: `/healthz`. Plano **free** basta: o vídeo é renderizado pela Creatify
-    (fora do Render), o servidor só faz chamadas de API leves.
+  - Health check: `/healthz`. Plano **free** (vídeo pode dar OOM; subir para "standard" ou
+    reduzir `VIDEO_LARGURA`/`VIDEO_ALTURA` se apertar).
   - Credenciais vão na aba **Environment** do serviço no painel do Render, nunca no Git.
 - Login básico da web: `WEB_USUARIO` / `WEB_SENHA` (senha vazia = acesso livre). Precisa
   responder com header `WWW-Authenticate` para o navegador abrir a caixa de login.
@@ -64,7 +64,6 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 - `credenciais_locais.py.exemplo` é **modelo** — nunca preencher com valores reais.
 - Chaves usadas: `SHOPEE_APP_ID`, `SHOPEE_SECRET`, `GEMINI_API_KEY`,
   `ML_ACCESS_TOKEN`, `ML_REFRESH_TOKEN`, `ML_CLIENT_ID`, `ML_CLIENT_SECRET`,
-  `CREATIFY_API_ID`, `CREATIFY_API_KEY` (geração de vídeo),
   `INSTAGRAM_USER_ID`, `INSTAGRAM_ACCESS_TOKEN` (publicar Reel).
 - **Mercado Livre (OAuth):** o `access_token` expira; o app renova sozinho usando o
   `refresh_token` + `ML_CLIENT_ID`/`ML_CLIENT_SECRET` e salva os novos tokens em
@@ -101,7 +100,7 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 | `android_integracao.py` | Permissões, compartilhamento, envio ao WhatsApp |
 | `ui_comum.py` | Componentes de interface reaproveitados |
 | `web/app_web.py` | Servidor Flask da versão web |
-| `web/video_campanha.py` | Geração de vídeo via API da Creatify |
+| `web/video_campanha.py` / `web/tts.py` | Geração de vídeo (moviepy) e narração (TTS) |
 | `web/edicao_ia.py` | 6 fluxos de edição/análise de vídeo com Gemini (aba Edição) |
 | `web/instagram_publish.py` | Publica o Reel no Instagram (Graph API) |
 | `buildozer.spec` / `.github/workflows/build-apk.yml` | Build do APK |
