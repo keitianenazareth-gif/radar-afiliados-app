@@ -96,10 +96,11 @@ AVISO_ML = (
 )
 
 PLATAFORMAS_MANUAIS = {
-    "mercado-livre": ("Mercado Livre", AVISO_ML),
-    "amazon": ("Amazon", ""),
-    "shein": ("Shein", ""),
-    "temu": ("Temu", ""),
+    # slug: (nome, aviso, link do site - pra abrir e escolher o produto)
+    "mercado-livre": ("Mercado Livre", AVISO_ML, "https://www.mercadolivre.com.br"),
+    "amazon": ("Amazon", "", "https://www.amazon.com.br"),
+    "shein": ("Shein", "", "https://www.shein.com.br"),
+    "temu": ("Temu", "", "https://www.temu.com"),
 }
 
 
@@ -121,7 +122,9 @@ def healthz():
 
 @app.route("/")
 def principal():
-    plataformas_manuais = [(slug, nome) for slug, (nome, _aviso) in PLATAFORMAS_MANUAIS.items()]
+    plataformas_manuais = [
+        (slug, nome) for slug, (nome, _aviso, _link) in PLATAFORMAS_MANUAIS.items()
+    ]
     return render_template("principal.html", plataformas_manuais=plataformas_manuais)
 
 
@@ -140,8 +143,10 @@ def plataforma(slug):
     dados = PLATAFORMAS_MANUAIS.get(slug)
     if dados is None:
         return "Plataforma desconhecida.", 404
-    nome_plataforma, aviso = dados
-    return render_template("manual.html", nome_plataforma=nome_plataforma, aviso=aviso)
+    nome_plataforma, aviso, link_site = dados
+    return render_template(
+        "manual.html", nome_plataforma=nome_plataforma, aviso=aviso, link_site=link_site
+    )
 
 
 @app.route("/galeria")

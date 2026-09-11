@@ -5,6 +5,13 @@
     <h1>{{ nome_plataforma.upper() }}</h1>
     {% if aviso %}<p class="linhas-info">{{ aviso }}</p>{% endif %}
 
+    {% if link_site %}
+    <a class="botao botao-secundario" href="{{ link_site }}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-bottom:12px">
+        🔗 ABRIR {{ nome_plataforma.upper() }} E ESCOLHER O PRODUTO
+    </a>
+    <p class="linhas-info">Abre o site numa aba nova. Ache o produto, copie o link dele e cole aqui embaixo.</p>
+    {% endif %}
+
     <input type="text" id="campo-link" placeholder="Cole o link do produto aqui...">
     <button class="botao botao-destaque" onclick="buscarDados()">🔍 BUSCAR DADOS AUTOMATICAMENTE</button>
     <div class="status" id="status-busca"></div>
