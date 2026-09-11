@@ -2,7 +2,7 @@
 {% block titulo %}Radar Afiliados{% endblock %}
 {% block conteudo %}
     <h1>RADAR AFILIADOS</h1>
-    <p class="subtitulo">Escolha uma plataforma para comecar</p>
+    <p class="subtitulo">Escolha uma plataforma para começar</p>
 
     <a class="card-link destaque" href="{{ url_for('geral') }}">
         <strong>⭐ VISÃO GERAL</strong>
@@ -11,7 +11,7 @@
 
     <a class="card-link" href="{{ url_for('shopee') }}">
         <strong>SHOPEE</strong>
-        <span>Busca automatica e campanhas com IA</span>
+        <span>Busca automática e campanhas com IA</span>
     </a>
 
     {% for slug, nome in plataformas_manuais %}
@@ -23,11 +23,11 @@
 
     <a class="card-link" href="{{ url_for('galeria_pagina') }}">
         <strong>🖼️ GALERIA</strong>
-        <span>Videos e imagens salvos pra postar</span>
+        <span>Vídeos e imagens salvos pra postar</span>
     </a>
 
     <a class="card-link" href="{{ url_for('edicao') }}">
         <strong>✏️ EDIÇÃO</strong>
-        <span>Analisar e melhorar roteiros/videos com IA</span>
+        <span>Analisar e melhorar roteiros/vídeos com IA</span>
     </a>
 {% endblock %}

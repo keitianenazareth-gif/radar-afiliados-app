@@ -5,11 +5,9 @@
 // Guarda o produto da campanha aberta no momento, para o gerador de video.
 let campanhaAtual = null;
 // URL local (/static/videos/...) do ultimo video gerado - so pra
-// preview/download aqui no site (o Instagram/WhatsApp nao enxergam).
+// preview/download aqui no site. Postar no Instagram/compartilhar no
+// WhatsApp agora e' so pela Galeria (onde o video ja cai sozinho).
 let videoUrlAtual = null;
-// URL publica do video na Galeria (Cloudinary) - essa sim o Instagram e
-// o WhatsApp conseguem abrir. Fica null se o salvamento na Galeria falhar.
-let videoUrlPublica = null;
 // URL publica da foto enviada manualmente (celular), se houver - substitui
 // a foto da plataforma nos 3 modos de video.
 let fotoManualUrl = null;
@@ -29,21 +27,14 @@ function resetarAreaVideo() {
     const status = document.getElementById("video-status");
     const saida = document.getElementById("video-saida");
     const botao = document.getElementById("botao-gerar-video");
-    const posVideo = document.getElementById("pos-video-area");
-    const statusIg = document.getElementById("instagram-status");
     const fotoInput = document.getElementById("foto-manual-input");
     const fotoStatus = document.getElementById("foto-manual-status");
-    const legenda = document.getElementById("legenda-postagem");
     if (status) status.textContent = "";
     if (saida) saida.innerHTML = "";
     if (botao) botao.disabled = false;
-    if (posVideo) posVideo.style.display = "none";
-    if (statusIg) statusIg.textContent = "";
     if (fotoInput) fotoInput.value = "";
     if (fotoStatus) fotoStatus.textContent = "";
-    if (legenda) legenda.value = "";
     videoUrlAtual = null;
-    videoUrlPublica = null;
     fotoManualUrl = null;
     resetarEstadoPromptVideo();
 }
@@ -53,7 +44,7 @@ function resetarEstadoPromptVideo() {
     const areaPrompt = document.getElementById("prompt-video-ia-area");
     if (areaPrompt) areaPrompt.style.display = "none";
     const botao = document.getElementById("botao-gerar-video");
-    if (botao) botao.textContent = "🎬 GERAR VIDEO (15-30s)";
+    if (botao) botao.textContent = "🎬 GERAR VÍDEO (15-30s)";
     const status = document.getElementById("video-status");
     if (status) status.textContent = "";
 }
@@ -73,7 +64,7 @@ function enviarFotoManual(evento) {
         .then((resposta) => resposta.json())
         .then((dados) => {
             if (!dados.sucesso) {
-                status.textContent = "Nao foi possivel enviar a foto: " + dados.erro;
+                status.textContent = "Não foi possível enviar a foto: " + dados.erro;
                 fotoManualUrl = null;
                 return;
             }
@@ -196,16 +187,12 @@ function gerarVideoCampanha() {
     botao.disabled = true;
     saida.innerHTML = "";
     videoUrlAtual = null;
-    videoUrlPublica = null;
-    const posVideo = document.getElementById("pos-video-area");
-    if (posVideo) posVideo.style.display = "none";
-    document.getElementById("instagram-status").textContent = "";
     status.textContent =
         modoEscolhido === "video"
-            ? "Gerando video com IA... isso pode levar de 1 a 3 minutos (a IA anima a foto real do produto)."
+            ? "Gerando vídeo com IA... isso pode levar de 1 a 3 minutos (a IA anima a foto real do produto)."
             : modoEscolhido === "fundo"
-            ? "Gerando fundo com IA e montando o video... isso pode levar ate 1-2 minutos."
-            : "Gerando video... isso pode levar ate 1 minuto (roteiro + narracao + montagem).";
+            ? "Gerando fundo com IA e montando o vídeo... isso pode levar até 1-2 minutos."
+            : "Gerando vídeo... isso pode levar até 1 minuto (roteiro + narração + montagem).";
 
     fetch("/api/campanha/video", {
         method: "POST",
@@ -216,84 +203,29 @@ function gerarVideoCampanha() {
         .then((dados) => {
             botao.disabled = false;
             if (!dados.sucesso) {
-                status.textContent = "Nao foi possivel gerar o video: " + dados.erro;
+                status.textContent = "Não foi possível gerar o vídeo: " + dados.erro;
                 return;
             }
             videoUrlAtual = dados.video_url;
-            videoUrlPublica = dados.galeria_url || null;
-            status.textContent = "Video pronto (narracao: " + dados.narracao + ").";
-            if (dados.aviso_galeria) {
-                status.textContent += " ⚠️ " + dados.aviso_galeria;
-            } else {
-                status.textContent += " Salvo na Galeria.";
-            }
+            status.textContent = "Vídeo pronto (narração: " + dados.narracao + ").";
+            status.textContent += dados.aviso_galeria
+                ? " ⚠️ " + dados.aviso_galeria
+                : " Salvo na Galeria — poste no Instagram ou compartilhe no WhatsApp por lá.";
             saida.innerHTML =
                 '<video src="' + dados.video_url + '" controls playsinline ' +
                 'style="width:100%;max-width:320px;border-radius:12px;margin-top:8px"></video>' +
                 '<a class="botao botao-primario" href="' + dados.video_url +
-                '" download style="display:block;margin-top:8px">BAIXAR VIDEO (.mp4)</a>';
+                '" download style="display:block;margin-top:8px">BAIXAR VÍDEO (.mp4)</a>';
 
-            if (posVideo) {
-                const legenda = document.getElementById("legenda-postagem");
-                const botaoIg = document.getElementById("botao-instagram");
-                const botaoWpp = document.getElementById("botao-whatsapp");
-                if (legenda) legenda.value = document.getElementById("modal-campanha-corpo").innerText.trim();
-                if (!videoUrlPublica) {
-                    document.getElementById("instagram-status").textContent =
-                        "⚠️ Não salvou na Galeria, então não dá pra postar no Instagram nem compartilhar no WhatsApp por aqui - baixe o vídeo acima e envie manualmente.";
-                    if (botaoIg) botaoIg.disabled = true;
-                    if (botaoWpp) botaoWpp.disabled = true;
-                } else {
-                    if (botaoIg) botaoIg.disabled = false;
-                    if (botaoWpp) botaoWpp.disabled = false;
-                }
-                posVideo.style.display = "block";
-            }
-
-            // limpa so o estado do prompt (sem apagar a mensagem "Video pronto"
+            // limpa so o estado do prompt (sem apagar a mensagem "Vídeo pronto"
             // que acabou de aparecer) - pronto pra gerar outro do zero, se quiser
             roteiroVideoIA = null;
             if (areaPrompt) areaPrompt.style.display = "none";
-            botao.textContent = "🎬 GERAR VIDEO (15-30s)";
+            botao.textContent = "🎬 GERAR VÍDEO (15-30s)";
         })
         .catch((erro) => {
             botao.disabled = false;
-            status.textContent = "Erro ao gerar o video: " + erro;
-        });
-}
-
-function compartilharVideoWhatsApp() {
-    if (!videoUrlPublica) return;
-    const legenda = document.getElementById("legenda-postagem").value.trim();
-    const texto = (legenda ? legenda + "\n\n" : "") + videoUrlPublica;
-    window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
-}
-
-function postarNoInstagram() {
-    if (!videoUrlPublica) return;
-
-    const botaoIg = document.getElementById("botao-instagram");
-    const statusIg = document.getElementById("instagram-status");
-    const legenda = document.getElementById("legenda-postagem").value.trim();
-
-    botaoIg.disabled = true;
-    statusIg.textContent = "Publicando no Instagram... o Instagram processa o video antes (pode levar alguns minutos).";
-
-    fetch("/api/instagram/postar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_url: videoUrlPublica, legenda: legenda }),
-    })
-        .then((resposta) => resposta.json())
-        .then((dados) => {
-            botaoIg.disabled = false;
-            statusIg.textContent = dados.sucesso
-                ? "Reel publicado! (id: " + dados.media_id + ")"
-                : "Nao foi possivel publicar: " + dados.erro;
-        })
-        .catch((erro) => {
-            botaoIg.disabled = false;
-            statusIg.textContent = "Erro ao publicar no Instagram: " + erro;
+            status.textContent = "Erro ao gerar o vídeo: " + erro;
         });
 }
 
@@ -311,7 +243,7 @@ function buscarProdutos(url, corpo, elementoStatus, aoReceber) {
         .then((resposta) => resposta.json())
         .then((dados) => {
             if (dados.erro) {
-                elementoStatus.textContent = "Nao foi possivel concluir a busca: " + dados.erro;
+                elementoStatus.textContent = "Não foi possível concluir a busca: " + dados.erro;
                 aoReceber([]);
                 return;
             }
@@ -319,7 +251,7 @@ function buscarProdutos(url, corpo, elementoStatus, aoReceber) {
             aoReceber(dados.itens);
         })
         .catch((erro) => {
-            elementoStatus.textContent = "Nao foi possivel concluir a busca: " + erro;
+            elementoStatus.textContent = "Não foi possível concluir a busca: " + erro;
             aoReceber([]);
         });
 }

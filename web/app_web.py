@@ -451,32 +451,6 @@ def api_campanha_video():
     )
 
 
-@app.route("/api/instagram/postar", methods=["POST"])
-def api_instagram_postar():
-    """Publica o video ja aprovado como Reel no Instagram (@clubedoquero).
-
-    Recebe a URL do video (a que a Creatify devolveu) e a legenda (o texto
-    da campanha). Sincrono - o Instagram processa o video antes de publicar
-    (segundos a poucos minutos)."""
-    dados = request.get_json(force=True)
-    video_url = (dados.get("video_url") or "").strip()
-    legenda = (dados.get("legenda") or "").strip()
-
-    if not video_url:
-        return jsonify({"sucesso": False, "erro": "Sem URL de video para publicar."})
-
-    try:
-        from web.instagram_publish import InstagramPublishError, postar_reel
-
-        media_id = postar_reel(video_url, legenda)
-    except InstagramPublishError as erro:
-        return jsonify({"sucesso": False, "erro": str(erro)})
-    except Exception as erro:  # noqa: BLE001
-        return jsonify({"sucesso": False, "erro": f"Erro ao publicar no Instagram: {erro}"})
-
-    return jsonify({"sucesso": True, "media_id": media_id})
-
-
 # ---------------------------------------------------------------------------
 # Galeria (fotos/videos gerados ou importados - guardados no Cloudinary,
 # indice no Upstash. Ver web/galeria.py pro motivo de nao usar disco local)

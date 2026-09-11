@@ -40,27 +40,10 @@
             </div>
 
             <button id="botao-gerar-video" class="botao botao-destaque" onclick="gerarVideoCampanha()">
-                🎬 GERAR VIDEO (15-30s)
+                🎬 GERAR VÍDEO (15-30s)
             </button>
             <p id="video-status" class="linhas-info"></p>
             <div id="video-saida"></div>
-
-            <div id="pos-video-area" style="display:none;text-align:left;margin-top:10px">
-                <label for="legenda-postagem" class="linhas-info" style="display:block;margin-bottom:4px">
-                    Legenda (pro Instagram e pro WhatsApp - pode editar):
-                </label>
-                <textarea id="legenda-postagem" rows="3" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px"></textarea>
-
-                <div class="linha" style="margin-top:8px;flex-wrap:wrap;gap:6px">
-                    <button id="botao-whatsapp" class="botao botao-verde" onclick="compartilharVideoWhatsApp()">
-                        📲 WHATSAPP
-                    </button>
-                    <button id="botao-instagram" class="botao botao-primario" onclick="postarNoInstagram()">
-                        📷 POSTAR NO INSTAGRAM
-                    </button>
-                </div>
-                <p id="instagram-status" class="linhas-info"></p>
-            </div>
         </div>
 
         <button class="botao-secundario" onclick="fecharModalCampanha()">FECHAR</button>

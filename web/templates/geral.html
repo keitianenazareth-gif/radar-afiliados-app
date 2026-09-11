@@ -22,7 +22,7 @@
         const container = document.getElementById("resultados");
         container.innerHTML = "";
         statusEl.textContent = itens.length + " oportunidades encontradas " +
-            "(Mercado Livre indisponivel no momento - limitacao da API)";
+            "(Mercado Livre indisponível no momento - limitação da API)";
 
         if (itens.length === 0) {
             container.innerHTML = '<p class="linhas-info">Nenhum produto encontrado.\nVerifique suas credenciais.</p>';
@@ -34,8 +34,8 @@
             card.className = "card";
 
             const linhas = [
-                "Preco: " + formatarMoeda(item.preco),
-                "Comissao: " + item.comissao_texto,
+                "Preço: " + formatarMoeda(item.preco),
+                "Comissão: " + item.comissao_texto,
                 "Vendas: " + item.vendas,
                 "Nota: " + Number(item.nota).toFixed(1) + " / 100",
             ];
