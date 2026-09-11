@@ -5,6 +5,8 @@ __pycache__/
 .env
 credenciais_locais.py
 tokens_ml.json
+kairogen_tokens.json
+kairogen_tokens.tmp
 .venv312/
 biblioteca.json
 destinos.json

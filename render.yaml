@@ -34,6 +34,16 @@ services:
         sync: false
       - key: INSTAGRAM_ACCESS_TOKEN
         sync: false
+      # --- Kairogen (geracao de imagem/video por IA) ---
+      # O refresh_token do Kairogen rotaciona a cada uso; o token novo fica
+      # no Upstash (cofrinho), nao no Render. Ver web/kairogen_auth.py.
+      # CLIENT_ID e TOKEN_URL tem default no codigo (so preencher p/ trocar).
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: KAIROGEN_REFRESH_TOKEN
+        sync: false
       # --- opcional: reduzir o video se a memoria apertar no plano free ---
       # - key: VIDEO_LARGURA
       #   value: "720"
