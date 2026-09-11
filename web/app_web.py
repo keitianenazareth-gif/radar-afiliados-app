@@ -30,6 +30,10 @@ from shopee import buscar_produtos, numero
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024  # 12MB - foto enviada do celular
+# Sem isso, o navegador pode guardar app.js/estilo.css em cache por horas
+# e a Keiti continuar vendo a tela antiga mesmo depois de um deploy novo
+# (foi o que aconteceu com o prompt do video nao aparecendo editavel).
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
 
 def _url_publica(caminho_relativo):
