@@ -44,6 +44,13 @@ services:
         sync: false
       - key: KAIROGEN_REFRESH_TOKEN
         sync: false
+      # --- Galeria (guarda os videos/fotos gerados - Cloudinary) ---
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
       # --- opcional: reduzir o video se a memoria apertar no plano free ---
       # - key: VIDEO_LARGURA
       #   value: "720"

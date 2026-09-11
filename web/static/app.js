@@ -213,6 +213,11 @@ function gerarVideoCampanha() {
             }
             videoUrlAtual = dados.video_url;
             status.textContent = "Video pronto (narracao: " + dados.narracao + ").";
+            if (dados.aviso_galeria) {
+                status.textContent += " ⚠️ " + dados.aviso_galeria;
+            } else {
+                status.textContent += " Salvo na Galeria.";
+            }
             saida.innerHTML =
                 '<video src="' + dados.video_url + '" controls playsinline ' +
                 'style="width:100%;max-width:320px;border-radius:12px;margin-top:8px"></video>' +

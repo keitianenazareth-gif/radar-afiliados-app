@@ -21,12 +21,10 @@ from flask import (
     redirect,
     render_template,
     request,
-    send_file,
     url_for,
 )
 from werkzeug.utils import secure_filename
 
-import biblioteca
 import produto_manual
 from shopee import buscar_produtos, numero
 
@@ -108,13 +106,6 @@ def _texto_preco(dados):
     return str(dados.get("preco_texto") or preco or "")
 
 
-def _encontrar_item_biblioteca(item_id):
-    for item in biblioteca.listar_itens():
-        if item["id"] == item_id:
-            return item
-    return None
-
-
 # ---------------------------------------------------------------------------
 # Paginas
 # ---------------------------------------------------------------------------
@@ -149,12 +140,19 @@ def plataforma(slug):
     return render_template("manual.html", nome_plataforma=nome_plataforma, aviso=aviso)
 
 
-@app.route("/biblioteca")
-def biblioteca_pagina():
+@app.route("/galeria")
+def galeria_pagina():
+    from web import galeria
+
+    try:
+        itens = galeria.listar_itens()
+        destinos = galeria.listar_destinos()
+        erro_galeria = None
+    except galeria.GaleriaError as erro:
+        itens, destinos, erro_galeria = [], [], str(erro)
+
     return render_template(
-        "biblioteca.html",
-        itens=biblioteca.listar_itens(),
-        destinos=biblioteca.listar_destinos(),
+        "galeria.html", itens=itens, destinos=destinos, erro_galeria=erro_galeria
     )
 
 
@@ -398,12 +396,25 @@ def api_campanha_video():
         return jsonify({"sucesso": False, "erro": f"Erro ao gerar video: {erro}"})
 
     nome_arquivo = os.path.basename(caminho_mp4)
+
+    # Salva na Galeria automaticamente (Cloudinary+Upstash - sobrevive a
+    # reinicio do Render). Best-effort: se falhar, o video gerado ainda
+    # e' devolvido normalmente (da pra baixar), so avisamos na tela.
+    aviso_galeria = None
+    try:
+        from web import galeria
+
+        galeria.adicionar_item(caminho_mp4, "video", nome_original=dados.get("nome"))
+    except Exception as erro:  # noqa: BLE001
+        aviso_galeria = f"Vídeo pronto, mas não consegui salvar na Galeria: {erro}"
+
     return jsonify(
         {
             "sucesso": True,
             "video_url": url_for("static", filename=f"videos/{nome_arquivo}"),
             "narracao": motor_tts,
             "roteiro": roteiro,
+            "aviso_galeria": aviso_galeria,
         }
     )
 
@@ -435,11 +446,14 @@ def api_instagram_postar():
 
 
 # ---------------------------------------------------------------------------
-# Biblioteca
+# Galeria (fotos/videos gerados ou importados - guardados no Cloudinary,
+# indice no Upstash. Ver web/galeria.py pro motivo de nao usar disco local)
 # ---------------------------------------------------------------------------
 
-@app.route("/biblioteca/importar", methods=["POST"])
-def biblioteca_importar():
+@app.route("/galeria/importar", methods=["POST"])
+def galeria_importar():
+    from web import galeria
+
     tipo = request.form.get("tipo", "imagem")
     arquivo = request.files.get("arquivo")
 
@@ -447,42 +461,44 @@ def biblioteca_importar():
         nome_seguro = secure_filename(arquivo.filename)
         caminho_temp = os.path.join(tempfile.gettempdir(), nome_seguro)
         arquivo.save(caminho_temp)
-        biblioteca.adicionar_item(caminho_temp, tipo)
-        os.remove(caminho_temp)
+        try:
+            galeria.adicionar_item(caminho_temp, tipo, nome_original=nome_seguro)
+        finally:
+            os.remove(caminho_temp)
 
-    return redirect(url_for("biblioteca_pagina"))
-
-
-@app.route("/biblioteca/excluir/<item_id>", methods=["POST"])
-def biblioteca_excluir(item_id):
-    biblioteca.remover_item(item_id)
-    return redirect(url_for("biblioteca_pagina"))
+    return redirect(url_for("galeria_pagina"))
 
 
-@app.route("/biblioteca/destino/alternar", methods=["POST"])
-def biblioteca_alternar_destino():
-    biblioteca.alternar_destino(request.form["item_id"], request.form["destino"])
-    return redirect(url_for("biblioteca_pagina"))
+@app.route("/galeria/excluir/<item_id>", methods=["POST"])
+def galeria_excluir(item_id):
+    from web import galeria
+
+    galeria.remover_item(item_id)
+    return redirect(url_for("galeria_pagina"))
 
 
-@app.route("/biblioteca/destino/adicionar", methods=["POST"])
-def biblioteca_adicionar_destino():
-    biblioteca.adicionar_destino(request.form.get("nome", ""))
-    return redirect(url_for("biblioteca_pagina"))
+@app.route("/galeria/destino/alternar", methods=["POST"])
+def galeria_alternar_destino():
+    from web import galeria
+
+    galeria.alternar_destino(request.form["item_id"], request.form["destino"])
+    return redirect(url_for("galeria_pagina"))
 
 
-@app.route("/biblioteca/destino/remover", methods=["POST"])
-def biblioteca_remover_destino():
-    biblioteca.remover_destino(request.form.get("nome", ""))
-    return redirect(url_for("biblioteca_pagina"))
+@app.route("/galeria/destino/adicionar", methods=["POST"])
+def galeria_adicionar_destino():
+    from web import galeria
+
+    galeria.adicionar_destino(request.form.get("nome", ""))
+    return redirect(url_for("galeria_pagina"))
 
 
-@app.route("/biblioteca/midia/<item_id>")
-def biblioteca_midia(item_id):
-    item = _encontrar_item_biblioteca(item_id)
-    if item is None:
-        return "Midia nao encontrada.", 404
-    return send_file(biblioteca.caminho_completo(item))
+@app.route("/galeria/destino/remover", methods=["POST"])
+def galeria_remover_destino():
+    from web import galeria
+
+    galeria.remover_destino(request.form.get("nome", ""))
+    return redirect(url_for("galeria_pagina"))
 
 
 if __name__ == "__main__":

@@ -1,11 +1,20 @@
 {% extends "base.html" %}
-{% block titulo %}Biblioteca - Radar Afiliados{% endblock %}
+{% block titulo %}Galeria - Radar Afiliados{% endblock %}
 {% block conteudo %}
     <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
-    <h1>📚 BIBLIOTECA</h1>
-    <div class="status">{{ itens|length }} itens na biblioteca</div>
+    <h1>🖼️ GALERIA</h1>
+    <div class="status">{{ itens|length }} itens na galeria</div>
+    {% if erro_galeria %}
+    <div class="card" style="border-color:#c0392b">
+        <strong>⚠️ Não consegui carregar a Galeria</strong>
+        <p class="linhas-info">{{ erro_galeria }}</p>
+        <p class="linhas-info">Confira se CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET e UPSTASH_REDIS_REST_URL/TOKEN estão configurados no Environment.</p>
+    </div>
+    {% endif %}
 
-    <form action="{{ url_for('biblioteca_importar') }}" method="post" enctype="multipart/form-data" class="card">
+    <p class="linhas-info">Os vídeos gerados na tela de campanha caem aqui sozinhos. Também dá pra importar um arquivo do notebook, se quiser.</p>
+
+    <form action="{{ url_for('galeria_importar') }}" method="post" enctype="multipart/form-data" class="card">
         <strong>Importar mídia</strong>
         <p class="linhas-info">Escolha o tipo e selecione o arquivo do seu notebook.</p>
         <select name="tipo" style="padding:10px; margin-bottom:10px; width:100%; background:var(--cor-campo); color:var(--cor-texto); border:1px solid #2a3038; border-radius:8px;">
@@ -20,7 +29,7 @@
         <strong>Destinos de postagem</strong>
         <div class="linha" style="margin:10px 0;">
             {% for destino in destinos %}
-            <form action="{{ url_for('biblioteca_remover_destino') }}" method="post" class="inline">
+            <form action="{{ url_for('galeria_remover_destino') }}" method="post" class="inline">
                 <input type="hidden" name="nome" value="{{ destino }}">
                 <button type="submit" class="botao-toggle" title="Remover">{{ destino }} ✕</button>
             </form>
@@ -28,7 +37,7 @@
             <span class="linhas-info">Nenhum destino cadastrado ainda.</span>
             {% endfor %}
         </div>
-        <form action="{{ url_for('biblioteca_adicionar_destino') }}" method="post" class="rodape-form">
+        <form action="{{ url_for('galeria_adicionar_destino') }}" method="post" class="rodape-form">
             <input type="text" name="nome" placeholder="Novo destino (ex: TikTok)...">
             <button type="submit" class="botao botao-destaque">+</button>
         </form>
@@ -38,9 +47,9 @@
         {% for item in itens %}
         <div class="card">
             {% if item.tipo == "imagem" %}
-                <img class="preview-midia" src="{{ url_for('biblioteca_midia', item_id=item.id) }}" alt="">
+                <img class="preview-midia" src="{{ item.url }}" alt="">
             {% else %}
-                <video class="preview-midia" src="{{ url_for('biblioteca_midia', item_id=item.id) }}" controls preload="metadata"></video>
+                <video class="preview-midia" src="{{ item.url }}" poster="{{ item.thumbnail_url or '' }}" controls preload="metadata"></video>
             {% endif %}
 
             <p class="linhas-info">{{ item.nome_original }}</p>
@@ -48,7 +57,7 @@
             <p><small>Postar em:</small></p>
             <div class="linha">
                 {% for destino in destinos %}
-                <form action="{{ url_for('biblioteca_alternar_destino') }}" method="post" class="inline">
+                <form action="{{ url_for('galeria_alternar_destino') }}" method="post" class="inline">
                     <input type="hidden" name="item_id" value="{{ item.id }}">
                     <input type="hidden" name="destino" value="{{ destino }}">
                     <button type="submit" class="botao-toggle {{ 'ativo' if destino in item.destinos else '' }}">{{ destino }}</button>
@@ -59,14 +68,14 @@
             </div>
 
             <div class="linha" style="margin-top:10px;">
-                <a class="botao botao-verde" href="{{ url_for('biblioteca_midia', item_id=item.id) }}" download onclick="window.open('https://web.whatsapp.com/', '_blank')">📤 BAIXAR E ABRIR WHATSAPP</a>
-                <form action="{{ url_for('biblioteca_excluir', item_id=item.id) }}" method="post" class="inline">
+                <a class="botao botao-verde" href="{{ item.url }}" download onclick="window.open('https://web.whatsapp.com/', '_blank')">📤 BAIXAR E ABRIR WHATSAPP</a>
+                <form action="{{ url_for('galeria_excluir', item_id=item.id) }}" method="post" class="inline">
                     <button type="submit" class="botao botao-secundario">EXCLUIR</button>
                 </form>
             </div>
         </div>
         {% else %}
-        <p class="linhas-info">Nenhuma midia ainda. Importe um arquivo do seu notebook acima.</p>
+        <p class="linhas-info">Nenhuma mídia ainda. Gere um vídeo na campanha ou importe um arquivo acima.</p>
         {% endfor %}
     </div>
 {% endblock %}
