@@ -4,6 +4,20 @@
         <div id="modal-campanha-corpo" class="resultado-campanha"></div>
 
         <div class="campanha-video">
+            <div id="modo-video-opcoes" class="linhas-info" style="text-align:left;margin-bottom:8px">
+                <label style="display:block;margin-bottom:4px">
+                    <input type="radio" name="modo-video" value="padrao" checked>
+                    Padrão (fundo borrado, grátis)
+                </label>
+                <label style="display:block;margin-bottom:4px">
+                    <input type="radio" name="modo-video" value="fundo">
+                    Fundo por IA (cenário gerado, sua foto do produto por cima — ~1 crédito)
+                </label>
+                <label style="display:block">
+                    <input type="radio" name="modo-video" value="video">
+                    Vídeo por IA (anima a foto real do produto — até 50 créditos)
+                </label>
+            </div>
             <button id="botao-gerar-video" class="botao botao-destaque" onclick="gerarVideoCampanha()">
                 🎬 GERAR VIDEO (15-30s)
             </button>

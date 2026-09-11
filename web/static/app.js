@@ -60,18 +60,26 @@ function gerarVideoCampanha() {
     const status = document.getElementById("video-status");
     const saida = document.getElementById("video-saida");
 
+    const modoEscolhido = (document.querySelector('input[name="modo-video"]:checked') || {}).value || "padrao";
+    const dadosEnvio = Object.assign({}, campanhaAtual, { modo_video: modoEscolhido });
+
     botao.disabled = true;
     saida.innerHTML = "";
     videoUrlAtual = null;
     const botaoIg = document.getElementById("botao-instagram");
     if (botaoIg) botaoIg.style.display = "none";
     document.getElementById("instagram-status").textContent = "";
-    status.textContent = "Gerando video... isso pode levar ate 1 minuto (roteiro + narracao + montagem).";
+    status.textContent =
+        modoEscolhido === "video"
+            ? "Gerando video com IA... isso pode levar de 1 a 3 minutos (a IA anima a foto real do produto)."
+            : modoEscolhido === "fundo"
+            ? "Gerando fundo com IA e montando o video... isso pode levar ate 1-2 minutos."
+            : "Gerando video... isso pode levar ate 1 minuto (roteiro + narracao + montagem).";
 
     fetch("/api/campanha/video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(campanhaAtual),
+        body: JSON.stringify(dadosEnvio),
     })
         .then((resposta) => resposta.json())
         .then((dados) => {

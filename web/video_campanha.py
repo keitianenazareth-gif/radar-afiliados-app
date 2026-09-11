@@ -6,11 +6,19 @@
 
 Uso:
     from web.video_campanha import montar_video
-    caminho_mp4 = montar_video(produto, roteiro)
+    caminho_mp4, motor_tts = montar_video(produto, roteiro)
 
 'produto' e' o mesmo dicionario que o front manda para /api/campanha
 (nome, preco/preco_texto, plataforma, imagem/imageUrl, link).
 'roteiro' e' o dict devolvido por gerar_roteiro_video.
+
+'modo_ia' (opcional) liga a geracao por IA (Kairogen, web/kairogen_media.py):
+    None      -> padrao: fundo borrado/gradiente, como sempre foi.
+    "fundo"   -> a IA gera um CENARIO de fundo; a foto REAL do produto
+                 continua sendo colada por cima, sem alteracao (barato).
+    "video"   -> a IA anima a FOTO REAL do produto (video de verdade,
+                 mais caro - ver DURACAO_VIDEO_MAX/TETO_CREDITOS_VIDEO
+                 em kairogen_media.py).
 """
 
 import io
@@ -22,7 +30,13 @@ import numpy as np
 import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from moviepy import AudioFileClip, CompositeVideoClip, ImageClip, concatenate_videoclips
+from moviepy import (
+    AudioFileClip,
+    CompositeVideoClip,
+    ImageClip,
+    VideoFileClip,
+    concatenate_videoclips,
+)
 from moviepy import vfx
 
 from web.tts import sintetizar
@@ -100,8 +114,22 @@ def _cobrir(img, larg, alt):
     return nova.crop((esq, topo, esq + larg, topo + alt))
 
 
-def _fundo(img_produto):
-    """Fundo da tela: foto do produto borrada e escurecida, ou gradiente."""
+def _cobrir_video(clip, larg, alt):
+    """Igual a _cobrir, mas para um clipe de video (moviepy): redimensiona
+    cobrindo larg x alt e corta o excesso no centro."""
+    escala = max(larg / clip.w, alt / clip.h)
+    maior = clip.resized(escala)
+    return maior.cropped(
+        x_center=maior.w / 2, y_center=maior.h / 2, width=larg, height=alt
+    )
+
+
+def _fundo(img_produto, fundo_extra=None):
+    """Fundo da tela: uma imagem gerada por IA (fundo_extra, modo "fundo"),
+    a foto do produto borrada e escurecida, ou um gradiente."""
+    if fundo_extra is not None:
+        return _cobrir(fundo_extra, LARGURA, ALTURA)
+
     if img_produto is not None:
         fundo = _cobrir(img_produto, LARGURA, ALTURA).filter(
             ImageFilter.GaussianBlur(40)
@@ -247,7 +275,95 @@ def _duracoes(cenas, dur_audio):
     return [alvo * p / soma for p in pesos]
 
 
-def montar_video(produto, roteiro):
+def _prompt_fundo_ia(produto, roteiro):
+    """Prompt do 'Jeito A': so o cenario, sem produto nem texto - quem
+    cola o produto de verdade por cima e' o _fundo()/_frame_cena().
+
+    Em ingles e bem explicito ("NO objects...") porque testamos e, sem
+    isso, o modelo tende a "inventar" um produto na cena (ex.: um outro
+    produto qualquer aparecendo do nada) em vez de so um fundo vazio."""
+    return (
+        "Empty minimalist studio backdrop for product photography. Smooth "
+        "seamless surface fading into a soft gradient wall, professional "
+        "studio lighting, soft shadows, shallow depth of field, subtle "
+        "bokeh, negative space in the center. Mood and color palette only "
+        f"(no objects) inspired by: {produto.get('nome', '')} - "
+        f"{roteiro.get('beneficio', '')}. Absolutely NO objects, NO "
+        "products, NO people, NO text, NO logos, NO bottles, NO "
+        "electronics, NO furniture in the frame - just empty background "
+        "texture and light."
+    ).strip()
+
+
+def _prompt_video_ia(roteiro):
+    """Prompt do 'Jeito B': anima a foto real do produto (first_frame)."""
+    cenas_texto = " ".join(
+        c.get("texto_tela", "") for c in (roteiro.get("cenas") or [])
+    ).strip()
+    return (
+        "Video de demonstracao de produto para redes sociais, estilo "
+        "profissional de e-commerce, camera se movendo suavemente, "
+        f"iluminacao realista, foco nitido no produto. {roteiro.get('titulo', '')}. "
+        f"{roteiro.get('beneficio', '')} {cenas_texto}"
+    ).strip()
+
+
+def _montar_video_ia(produto, roteiro, nome_id):
+    """'Jeito B': baixa o video que o Kairogen gerou animando a FOTO REAL
+    do produto, corta/redimensiona pro formato vertical, sobrepoe o selo
+    de preco e troca o audio pela narracao (web.tts)."""
+    from web import kairogen_media
+
+    url_produto = (
+        produto.get("imagem") or produto.get("imageUrl") or produto.get("image") or ""
+    ).strip()
+
+    caminho_mp4 = os.path.join(PASTA_SAIDA, f"{nome_id}.mp4")
+    caminho_audio_base = os.path.join(PASTA_SAIDA, f"_narr-{nome_id}")
+
+    caminho_ia = kairogen_media.video_ia(url_produto, _prompt_video_ia(roteiro))
+    caminho_audio, motor_tts = sintetizar(roteiro["narracao"], caminho_audio_base + ".wav")
+    narracao = AudioFileClip(caminho_audio)
+
+    bruto = VideoFileClip(caminho_ia)
+    video = _cobrir_video(bruto, LARGURA, ALTURA)
+
+    preco = _texto_preco(produto)
+    if preco:
+        selo_img = Image.new("RGBA", (LARGURA, ALTURA), (0, 0, 0, 0))
+        _badge_preco(ImageDraw.Draw(selo_img), preco, int(ALTURA * 0.82))
+        selo = ImageClip(np.array(selo_img)).with_duration(video.duration)
+        video = CompositeVideoClip([video, selo], size=(LARGURA, ALTURA))
+
+    # narracao nao pode passar do tamanho do video da IA (senao corta
+    # feio no meio da fala); se sobrar video, so fica silencio no fim.
+    if narracao.duration > video.duration - 0.3:
+        narracao = narracao.subclipped(0, max(0.1, video.duration - 0.3))
+    video = video.with_audio(narracao.with_start(0.3))
+
+    video.write_videofile(
+        caminho_mp4,
+        fps=FPS,
+        codec="libx264",
+        audio_codec="aac",
+        preset=PRESET,
+        threads=os.cpu_count() or 2,
+        logger=None,
+    )
+
+    bruto.close()
+    video.close()
+    narracao.close()
+    for caminho in (caminho_audio, caminho_ia):
+        try:
+            os.remove(caminho)
+        except OSError:
+            pass
+
+    return caminho_mp4, f"{motor_tts} + Kairogen ({kairogen_media.MODELO_VIDEO})"
+
+
+def montar_video(produto, roteiro, modo_ia=None):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
 
     cenas = roteiro.get("cenas") or []
@@ -255,6 +371,10 @@ def montar_video(produto, roteiro):
         raise RuntimeError("Roteiro sem cenas.")
 
     nome_id = f"{_slug(produto.get('nome'))}-{uuid.uuid4().hex[:8]}"
+
+    if modo_ia == "video":
+        return _montar_video_ia(produto, roteiro, nome_id)
+
     caminho_audio_base = os.path.join(PASTA_SAIDA, f"_narr-{nome_id}")
     caminho_mp4 = os.path.join(PASTA_SAIDA, f"{nome_id}.mp4")
 
@@ -264,7 +384,13 @@ def montar_video(produto, roteiro):
 
     # 2) imagem + fundo
     img_produto = _baixar_imagem(produto)
-    fundo = _fundo(img_produto)
+    fundo_extra = None
+    if modo_ia == "fundo":
+        from web import kairogen_media
+
+        caminho_fundo = kairogen_media.fundo_ia(_prompt_fundo_ia(produto, roteiro))
+        fundo_extra = Image.open(caminho_fundo).convert("RGB")
+    fundo = _fundo(img_produto, fundo_extra)
     preco = _texto_preco(produto)
 
     # 3) cenas -> clipes

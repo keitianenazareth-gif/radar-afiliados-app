@@ -261,11 +261,23 @@ def api_campanha():
 @app.route("/api/campanha/video", methods=["POST"])
 def api_campanha_video():
     """Gera um video curto (mp4) de divulgacao: foto do produto +
-    texto na tela + narracao. Sincrono - pode levar ~30-60s."""
+    texto na tela + narracao. Sincrono - pode levar ~30-60s (ou alguns
+    minutos no modo "video" com IA).
+
+    dados["modo_video"] escolhe o modo:
+        (ausente/"padrao") -> fundo borrado, como sempre foi
+        "fundo"            -> fundo gerado por IA (Kairogen, barato)
+        "video"            -> video de IA animando a foto real do
+                               produto (Kairogen, ate ~50 creditos)
+    """
     dados = request.get_json(force=True)
 
     if not dados.get("nome"):
         return jsonify({"sucesso": False, "erro": "Produto sem nome."})
+
+    modo_ia = dados.get("modo_video") or None
+    if modo_ia not in (None, "fundo", "video"):
+        modo_ia = None
 
     try:
         from campanhas_ia import gerar_roteiro_video
@@ -280,7 +292,7 @@ def api_campanha_video():
             vendas=str(dados.get("vendas", "") or ""),
             link=dados.get("link", ""),
         )
-        caminho_mp4, motor_tts = montar_video(dados, roteiro)
+        caminho_mp4, motor_tts = montar_video(dados, roteiro, modo_ia=modo_ia)
     except RuntimeError as erro:
         return jsonify({"sucesso": False, "erro": str(erro)})
     except Exception as erro:  # noqa: BLE001

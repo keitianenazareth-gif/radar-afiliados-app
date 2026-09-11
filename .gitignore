@@ -13,3 +13,4 @@ destinos.json
 biblioteca_midias/
 gerar_token_ml.py
 web/static/videos/
+web/static/kairogen/
