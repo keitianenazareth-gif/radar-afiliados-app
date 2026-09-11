@@ -8,6 +8,27 @@
         um fluxo. A IA (mesmo Gemini das campanhas) devolve a análise.
     </p>
 
+    <div class="card" style="text-align:left">
+        <strong>📎 Anexar vídeo (opcional)</strong>
+        <p class="linhas-info">Só pra você ver do lado enquanto escreve o texto (ex.: "o produto não ficou fiel, melhorar a apresentação"). O vídeo em si não é enviado pra IA — quem descreve o que precisa melhorar é você, no campo de texto abaixo.</p>
+
+        <label class="linhas-info" for="video-da-galeria">Escolher da Galeria</label>
+        <select id="video-da-galeria" onchange="mostrarVideoGaleria(this.value)" style="width:100%;margin-bottom:10px">
+            <option value="">-- selecione --</option>
+            {% for item in videos_galeria %}
+            <option value="{{ item.url }}">{{ item.nome_original }}</option>
+            {% endfor %}
+        </select>
+        {% if not videos_galeria %}
+        <p class="linhas-info">Nenhum vídeo na Galeria ainda.</p>
+        {% endif %}
+
+        <label class="linhas-info" for="video-do-celular">Ou enviar do celular</label>
+        <input type="file" id="video-do-celular" accept="video/*" onchange="mostrarVideoLocal(this)">
+
+        <video id="preview-video-edicao" controls playsinline style="display:none;width:100%;max-width:320px;border-radius:12px;margin-top:10px"></video>
+    </div>
+
     <form method="post">
         <label class="linhas-info" for="fluxo">Fluxo</label>
         <select id="fluxo" name="fluxo">
@@ -19,7 +40,7 @@
         </select>
 
         <label class="linhas-info" for="texto">Texto</label>
-        <textarea id="texto" name="texto" placeholder="Cole aqui o roteiro / a descrição do material / do vídeo...">{{ texto_enviado }}</textarea>
+        <textarea id="texto" name="texto" placeholder="Cole aqui o roteiro / a descrição do material / do vídeo, ou escreva o que quer melhorar (ex.: 'o produto não ficou fiel, melhorar a apresentação')...">{{ texto_enviado }}</textarea>
 
         <button type="submit" class="botao botao-primario">GERAR ANÁLISE</button>
     </form>
@@ -32,4 +53,34 @@
     <h3 class="linhas-info">Resultado</h3>
     <div class="resultado-campanha">{{ resultado }}</div>
     {% endif %}
+
+    <script>
+        // So preview local - nao sobe nada pro servidor. Se escolher um
+        // da Galeria, troca pra selecao "" no upload local (e vice-versa),
+        // pra nao ficar confuso qual dos dois esta sendo mostrado.
+        function mostrarVideoGaleria(url) {
+            const video = document.getElementById("preview-video-edicao");
+            document.getElementById("video-do-celular").value = "";
+            if (!url) {
+                video.style.display = "none";
+                video.removeAttribute("src");
+                return;
+            }
+            video.src = url;
+            video.style.display = "block";
+        }
+
+        function mostrarVideoLocal(input) {
+            const video = document.getElementById("preview-video-edicao");
+            document.getElementById("video-da-galeria").value = "";
+            const arquivo = input.files && input.files[0];
+            if (!arquivo) {
+                video.style.display = "none";
+                video.removeAttribute("src");
+                return;
+            }
+            video.src = URL.createObjectURL(arquivo);
+            video.style.display = "block";
+        }
+    </script>
 {% endblock %}

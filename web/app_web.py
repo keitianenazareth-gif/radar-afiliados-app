@@ -163,9 +163,17 @@ def galeria_pagina():
 @app.route("/edicao", methods=["GET", "POST"])
 def edicao():
     """Aba "Edicao": caixa de texto + seletor com os 6 fluxos de IA
-    (edicao_ia.rodar_fluxo). Formulario simples, sem JS - o POST recarrega
-    a pagina com o resultado embaixo."""
+    (edicao_ia.rodar_fluxo), mais um jeito de ANEXAR um video (da Galeria
+    ou do celular) so pra Keiti ver do lado enquanto escreve o texto - o
+    video em si nao e' mandado pra IA, so fica de referencia visual na
+    tela (ver o <script> no fim de edicao.html)."""
+    from web import galeria
     from web.edicao_ia import FLUXOS_ROTULOS, rodar_fluxo
+
+    try:
+        videos_galeria = [i for i in galeria.listar_itens() if i.get("tipo") == "video"]
+    except galeria.GaleriaError:
+        videos_galeria = []
 
     resultado = None
     erro = None
@@ -194,6 +202,7 @@ def edicao():
         texto_enviado=texto_enviado,
         resultado=resultado,
         erro=erro,
+        videos_galeria=videos_galeria,
     )
 
 
