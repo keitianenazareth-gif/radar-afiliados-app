@@ -17,6 +17,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import (
     Flask,
     Response,
+    flash,
+    get_flashed_messages,
     jsonify,
     redirect,
     render_template,
@@ -30,6 +32,10 @@ from shopee import buscar_produtos, numero
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024  # 12MB - foto enviada do celular
+# So pra mensagens de status (flash) apos postar no Instagram pela Galeria -
+# nao guarda nada sensivel, nao tem sessao/login por cookie (o login e'
+# HTTP Basic, refeito a cada request).
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "radar-afiliados-flash-nao-sensivel")
 # Sem isso, o navegador pode guardar app.js/estilo.css em cache por horas
 # e a Keiti continuar vendo a tela antiga mesmo depois de um deploy novo
 # (foi o que aconteceu com o prompt do video nao aparecendo editavel).
@@ -418,11 +424,18 @@ def api_campanha_video():
     # Salva na Galeria automaticamente (Cloudinary+Upstash - sobrevive a
     # reinicio do Render). Best-effort: se falhar, o video gerado ainda
     # e' devolvido normalmente (da pra baixar), so avisamos na tela.
+    # A URL do Cloudinary (galeria_url) e' a que o Instagram consegue
+    # baixar de verdade - a video_url local (/static/videos/...) nao
+    # funciona pro Instagram, so pro preview/download aqui no site.
     aviso_galeria = None
+    galeria_url = None
     try:
         from web import galeria
 
-        galeria.adicionar_item(caminho_mp4, "video", nome_original=dados.get("nome"))
+        item_galeria = galeria.adicionar_item(
+            caminho_mp4, "video", nome_original=dados.get("nome")
+        )
+        galeria_url = item_galeria.get("url")
     except Exception as erro:  # noqa: BLE001
         aviso_galeria = f"Vídeo pronto, mas não consegui salvar na Galeria: {erro}"
 
@@ -430,6 +443,7 @@ def api_campanha_video():
         {
             "sucesso": True,
             "video_url": url_for("static", filename=f"videos/{nome_arquivo}"),
+            "galeria_url": galeria_url,
             "narracao": motor_tts,
             "roteiro": roteiro,
             "aviso_galeria": aviso_galeria,
@@ -516,6 +530,35 @@ def galeria_remover_destino():
     from web import galeria
 
     galeria.remover_destino(request.form.get("nome", ""))
+    return redirect(url_for("galeria_pagina"))
+
+
+@app.route("/galeria/postar-instagram/<item_id>", methods=["POST"])
+def galeria_postar_instagram(item_id):
+    """Posta um item ja salvo na Galeria como Reel no Instagram
+    (@clubedoquero). Sincrono - o Instagram processa o video antes de
+    publicar (pode levar ate uns 3 minutos)."""
+    from web import galeria
+
+    itens = galeria.listar_itens()
+    item = next((i for i in itens if i["id"] == item_id), None)
+
+    if item is None:
+        flash("Item não encontrado na Galeria.")
+    elif item.get("tipo") != "video":
+        flash("Só dá pra postar vídeo no Instagram (esse item é imagem).")
+    else:
+        legenda = request.form.get("legenda", "").strip()
+        try:
+            from web.instagram_publish import InstagramPublishError, postar_reel
+
+            media_id = postar_reel(item["url"], legenda)
+            flash(f"✅ Postado no Instagram! (id: {media_id})")
+        except InstagramPublishError as erro:
+            flash(f"Não foi possível postar no Instagram: {erro}")
+        except Exception as erro:  # noqa: BLE001
+            flash(f"Erro ao postar no Instagram: {erro}")
+
     return redirect(url_for("galeria_pagina"))
 
 

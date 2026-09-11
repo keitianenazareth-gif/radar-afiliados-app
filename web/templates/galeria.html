@@ -4,6 +4,9 @@
     <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
     <h1>🖼️ GALERIA</h1>
     <div class="status">{{ itens|length }} itens na galeria</div>
+    {% for mensagem in get_flashed_messages() %}
+    <p class="linhas-info" style="padding:10px;background:var(--cor-card);border-radius:8px;margin:8px 0">{{ mensagem }}</p>
+    {% endfor %}
     {% if erro_galeria %}
     <div class="card" style="border-color:#c0392b">
         <strong>⚠️ Não consegui carregar a Galeria</strong>
@@ -67,8 +70,18 @@
                 {% endfor %}
             </div>
 
-            <div class="linha" style="margin-top:10px;">
-                <a class="botao botao-verde" href="{{ item.url }}" download onclick="window.open('https://web.whatsapp.com/', '_blank')">📤 BAIXAR E ABRIR WHATSAPP</a>
+            <label class="linhas-info" for="legenda-{{ item.id }}">Legenda (pro Instagram e pro WhatsApp)</label>
+            <textarea id="legenda-{{ item.id }}" rows="2" style="width:100%;box-sizing:border-box;padding:6px;border-radius:8px">{{ item.nome_original }}</textarea>
+
+            <div class="linha" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+                <a class="botao botao-secundario" href="{{ item.url }}" download>⬇️ BAIXAR</a>
+                <button type="button" class="botao botao-verde" onclick="compartilharWhatsApp('{{ item.id }}', {{ item.url|tojson }})">📲 WHATSAPP</button>
+                {% if item.tipo == "video" %}
+                <form action="{{ url_for('galeria_postar_instagram', item_id=item.id) }}" method="post" class="inline" onsubmit="return prepararLegendaInstagram(this, '{{ item.id }}')">
+                    <input type="hidden" name="legenda" value="">
+                    <button type="submit" class="botao botao-primario">📷 INSTAGRAM</button>
+                </form>
+                {% endif %}
                 <form action="{{ url_for('galeria_excluir', item_id=item.id) }}" method="post" class="inline">
                     <button type="submit" class="botao botao-secundario">EXCLUIR</button>
                 </form>
@@ -78,4 +91,24 @@
         <p class="linhas-info">Nenhuma mídia ainda. Gere um vídeo na campanha ou importe um arquivo acima.</p>
         {% endfor %}
     </div>
+
+    <script>
+        // Compartilhar no WhatsApp: abre o WhatsApp (app ou web) ja com a
+        // legenda + o link do video/imagem prontos - so falta escolher o
+        // contato/grupo e mandar. Nao precisa baixar nada antes.
+        function compartilharWhatsApp(itemId, url) {
+            const legenda = document.getElementById("legenda-" + itemId).value.trim();
+            const texto = (legenda ? legenda + "\n\n" : "") + url;
+            window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
+        }
+
+        // Antes de mandar o formulario de "Postar no Instagram", copia o
+        // valor atual da legenda (que a Keiti pode ter editado) pro campo
+        // escondido que de fato vai no POST.
+        function prepararLegendaInstagram(form, itemId) {
+            const legenda = document.getElementById("legenda-" + itemId).value.trim();
+            form.querySelector('input[name="legenda"]').value = legenda;
+            return true;
+        }
+    </script>
 {% endblock %}
