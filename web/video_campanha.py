@@ -328,12 +328,10 @@ def _montar_video_ia(produto, roteiro, nome_id):
     bruto = VideoFileClip(caminho_ia)
     video = _cobrir_video(bruto, LARGURA, ALTURA)
 
-    preco = _texto_preco(produto)
-    if preco:
-        selo_img = Image.new("RGBA", (LARGURA, ALTURA), (0, 0, 0, 0))
-        _badge_preco(ImageDraw.Draw(selo_img), preco, int(ALTURA * 0.82))
-        selo = ImageClip(np.array(selo_img)).with_duration(video.duration)
-        video = CompositeVideoClip([video, selo], size=(LARGURA, ALTURA))
+    # Sem selo de preco nem texto por cima neste modo (pedido explicito -
+    # o selo estava saindo grande demais e cortando na tela). O video fica
+    # so com a animacao do produto + narracao; preco/legenda vao na legenda
+    # do post, nao "queimados" no video.
 
     # narracao nao pode passar do tamanho do video da IA (senao corta
     # feio no meio da fala); se sobrar video, so fica silencio no fim.
