@@ -295,8 +295,12 @@ def _prompt_fundo_ia(produto, roteiro):
     ).strip()
 
 
-def _prompt_video_ia(roteiro):
-    """Prompt do 'Jeito B': anima a foto real do produto (first_frame)."""
+def montar_prompt_video_ia(roteiro):
+    """Prompt do 'Jeito B': anima a foto real do produto (first_frame).
+
+    Publica (sem "_") porque a rota /api/campanha/video/prompt devolve
+    esse texto pra Keiti revisar/editar antes de confirmar a geracao
+    (que ai sim gasta credito)."""
     cenas_texto = " ".join(
         c.get("texto_tela", "") for c in (roteiro.get("cenas") or [])
     ).strip()
@@ -308,10 +312,13 @@ def _prompt_video_ia(roteiro):
     ).strip()
 
 
-def _montar_video_ia(produto, roteiro, nome_id):
+def _montar_video_ia(produto, roteiro, nome_id, prompt_video=None):
     """'Jeito B': baixa o video que o Kairogen gerou animando a FOTO REAL
     do produto, corta/redimensiona pro formato vertical, sobrepoe o selo
-    de preco e troca o audio pela narracao (web.tts)."""
+    de preco e troca o audio pela narracao (web.tts).
+
+    'prompt_video': se vier preenchido (a Keiti editou na tela antes de
+    confirmar), usa ele; senao monta o padrao a partir do roteiro."""
     from web import kairogen_media
 
     url_produto = (
@@ -321,7 +328,8 @@ def _montar_video_ia(produto, roteiro, nome_id):
     caminho_mp4 = os.path.join(PASTA_SAIDA, f"{nome_id}.mp4")
     caminho_audio_base = os.path.join(PASTA_SAIDA, f"_narr-{nome_id}")
 
-    caminho_ia = kairogen_media.video_ia(url_produto, _prompt_video_ia(roteiro))
+    prompt = (prompt_video or "").strip() or montar_prompt_video_ia(roteiro)
+    caminho_ia = kairogen_media.video_ia(url_produto, prompt)
     caminho_audio, motor_tts = sintetizar(roteiro["narracao"], caminho_audio_base + ".wav")
     narracao = AudioFileClip(caminho_audio)
 
@@ -361,7 +369,7 @@ def _montar_video_ia(produto, roteiro, nome_id):
     return caminho_mp4, f"{motor_tts} + Kairogen ({kairogen_media.MODELO_VIDEO})"
 
 
-def montar_video(produto, roteiro, modo_ia=None):
+def montar_video(produto, roteiro, modo_ia=None, prompt_video=None):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
 
     cenas = roteiro.get("cenas") or []
@@ -371,7 +379,7 @@ def montar_video(produto, roteiro, modo_ia=None):
     nome_id = f"{_slug(produto.get('nome'))}-{uuid.uuid4().hex[:8]}"
 
     if modo_ia == "video":
-        return _montar_video_ia(produto, roteiro, nome_id)
+        return _montar_video_ia(produto, roteiro, nome_id, prompt_video=prompt_video)
 
     caminho_audio_base = os.path.join(PASTA_SAIDA, f"_narr-{nome_id}")
     caminho_mp4 = os.path.join(PASTA_SAIDA, f"{nome_id}.mp4")

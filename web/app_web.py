@@ -10,6 +10,7 @@ import hmac
 import os
 import sys
 import tempfile
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -30,6 +31,19 @@ import produto_manual
 from shopee import buscar_produtos, numero
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024  # 12MB - foto enviada do celular
+
+
+def _url_publica(caminho_relativo):
+    """Monta uma URL publica e completa (https) a partir de um caminho
+    tipo /static/... - necessario pro Kairogen conseguir BAIXAR a foto
+    (ele nao enxerga localhost nem caminho relativo). Sem ProxyFix
+    configurado, request.host_url viria como 'http://' mesmo no Render
+    (que fica atras de um proxy https), entao usamos o dominio fixo
+    conhecido - da pra trocar via variavel de ambiente se precisar
+    (ex.: testando local com ngrok)."""
+    base = os.environ.get("BASE_URL_PUBLICA", "https://radar-afiliados-web.onrender.com")
+    return base.rstrip("/") + caminho_relativo
 
 # ---------------------------------------------------------------------------
 # Login (HTTP Basic). Usuario/senha vem de credenciais_locais.py ou de
@@ -258,6 +272,74 @@ def api_campanha():
     return jsonify({"sucesso": True, "texto": texto})
 
 
+def _produto_com_foto_manual(dados):
+    """Se a Keiti enviou uma foto propria (upload do celular), essa URL
+    substitui a foto raspada da plataforma - vale pros 3 modos."""
+    produto = dict(dados)
+    foto_manual = (dados.get("foto_manual_url") or "").strip()
+    if foto_manual:
+        produto["imagem"] = foto_manual
+    return produto
+
+
+@app.route("/api/campanha/video/prompt", methods=["POST"])
+def api_campanha_video_prompt():
+    """So gera o roteiro (Gemini) + o prompt do modo "Vídeo por IA" -
+    NAO chama o Kairogen, entao nao gasta credito nenhum. Serve pra
+    Keiti revisar/editar o prompt antes de confirmar a geracao paga
+    (ver /api/campanha/video, campo "prompt_video")."""
+    dados = request.get_json(force=True)
+
+    if not dados.get("nome"):
+        return jsonify({"sucesso": False, "erro": "Produto sem nome."})
+
+    try:
+        from campanhas_ia import gerar_roteiro_video
+
+        from web.video_campanha import montar_prompt_video_ia
+
+        roteiro = gerar_roteiro_video(
+            plataforma=dados.get("plataforma", ""),
+            produto=dados.get("nome", ""),
+            preco=_texto_preco(dados),
+            comissao=dados.get("comissao_texto", ""),
+            vendas=str(dados.get("vendas", "") or ""),
+            link=dados.get("link", ""),
+        )
+        prompt = montar_prompt_video_ia(roteiro)
+    except RuntimeError as erro:
+        return jsonify({"sucesso": False, "erro": str(erro)})
+    except Exception as erro:  # noqa: BLE001
+        return jsonify({"sucesso": False, "erro": f"Erro ao gerar o prompt: {erro}"})
+
+    return jsonify({"sucesso": True, "roteiro": roteiro, "prompt": prompt})
+
+
+@app.route("/api/campanha/foto", methods=["POST"])
+def api_campanha_foto():
+    """Recebe uma foto enviada manualmente (ex.: tirada/escolhida no
+    celular) pra usar no lugar da foto raspada da plataforma. Devolve
+    uma URL PUBLICA (obrigatorio: o Kairogen precisa baixar a imagem
+    pela internet, nao enxerga arquivo local nem localhost)."""
+    arquivo = request.files.get("foto")
+    if not arquivo or not arquivo.filename:
+        return jsonify({"sucesso": False, "erro": "Nenhuma foto enviada."})
+
+    extensao = os.path.splitext(arquivo.filename)[1].lower()
+    if extensao not in (".jpg", ".jpeg", ".png", ".webp"):
+        return jsonify(
+            {"sucesso": False, "erro": "Formato nao aceito. Use JPG, PNG ou WEBP."}
+        )
+
+    pasta = os.path.join(os.path.dirname(__file__), "static", "uploads")
+    os.makedirs(pasta, exist_ok=True)
+    nome_arquivo = f"{uuid.uuid4().hex[:16]}{extensao}"
+    arquivo.save(os.path.join(pasta, nome_arquivo))
+
+    url = _url_publica(url_for("static", filename=f"uploads/{nome_arquivo}"))
+    return jsonify({"sucesso": True, "url": url})
+
+
 @app.route("/api/campanha/video", methods=["POST"])
 def api_campanha_video():
     """Gera um video curto (mp4) de divulgacao: foto do produto +
@@ -269,7 +351,15 @@ def api_campanha_video():
         "fundo"            -> fundo gerado por IA (Kairogen, barato)
         "video"            -> video de IA animando a foto real do
                                produto (Kairogen, ate ~50 creditos)
-    """
+
+    dados["foto_manual_url"]: se veio de /api/campanha/foto, usa essa
+    foto no lugar da foto raspada da plataforma (vale pros 3 modos).
+
+    dados["roteiro"] + dados["prompt_video"] (opcionais, so modo
+    "video"): quando a tela ja mostrou o prompt pra Keiti revisar
+    (via /api/campanha/video/prompt) e ela confirmou, manda os dois de
+    volta aqui - evita gerar um roteiro/narracao diferente do que ela
+    viu na hora de confirmar."""
     dados = request.get_json(force=True)
 
     if not dados.get("nome"):
@@ -279,20 +369,29 @@ def api_campanha_video():
     if modo_ia not in (None, "fundo", "video"):
         modo_ia = None
 
-    try:
-        from campanhas_ia import gerar_roteiro_video
+    produto = _produto_com_foto_manual(dados)
+    roteiro_pronto = dados.get("roteiro")
+    prompt_video = (dados.get("prompt_video") or "").strip() or None
 
+    try:
         from web.video_campanha import montar_video
 
-        roteiro = gerar_roteiro_video(
-            plataforma=dados.get("plataforma", ""),
-            produto=dados.get("nome", ""),
-            preco=_texto_preco(dados),
-            comissao=dados.get("comissao_texto", ""),
-            vendas=str(dados.get("vendas", "") or ""),
-            link=dados.get("link", ""),
+        if roteiro_pronto and roteiro_pronto.get("cenas") and roteiro_pronto.get("narracao"):
+            roteiro = roteiro_pronto
+        else:
+            from campanhas_ia import gerar_roteiro_video
+
+            roteiro = gerar_roteiro_video(
+                plataforma=dados.get("plataforma", ""),
+                produto=dados.get("nome", ""),
+                preco=_texto_preco(dados),
+                comissao=dados.get("comissao_texto", ""),
+                vendas=str(dados.get("vendas", "") or ""),
+                link=dados.get("link", ""),
+            )
+        caminho_mp4, motor_tts = montar_video(
+            produto, roteiro, modo_ia=modo_ia, prompt_video=prompt_video
         )
-        caminho_mp4, motor_tts = montar_video(dados, roteiro, modo_ia=modo_ia)
     except RuntimeError as erro:
         return jsonify({"sucesso": False, "erro": str(erro)})
     except Exception as erro:  # noqa: BLE001
