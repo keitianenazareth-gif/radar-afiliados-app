@@ -50,7 +50,15 @@ FPS = 24
 FADE = 0.25                  # fade curto entre cenas (transicao simples)
 DUR_MIN, DUR_MAX = 15.0, 30.0
 PRESET = os.environ.get("VIDEO_PRESET", "ultrafast")  # libx264
-KEN_BURNS = False            # zoom lento por cena; encarece MUITO o render
+# Zoom lento por cena (Ken Burns): deixa o video parecer video de verdade
+# em vez de foto parada. Encarece o render (resize a cada frame), entao
+# fica DESLIGADO por padrao no Render free (pouca RAM/CPU) e ligado so
+# onde tem folga de recurso (ex.: GitHub Actions, via VIDEO_KEN_BURNS=1).
+KEN_BURNS = os.environ.get("VIDEO_KEN_BURNS", "0") == "1"
+# Selo de preco em cima do video: desligado por padrao (pedido explicito -
+# Keiti nao quer o preco aparecendo). Defina VIDEO_MOSTRAR_PRECO=1 se
+# mudar de ideia.
+MOSTRAR_PRECO = os.environ.get("VIDEO_MOSTRAR_PRECO", "0") == "1"
 
 PASTA_SAIDA = os.path.join(os.path.dirname(__file__), "static", "videos")
 
@@ -66,12 +74,23 @@ _CABECALHOS = {
 # Fontes
 # ---------------------------------------------------------------------------
 
+_PASTA_FONTES = os.path.join(os.path.dirname(__file__), "static", "fonts")
+
+
 def _fonte(tamanho, negrito=True):
-    candidatos = (
-        ["arialbd.ttf", "seguisb.ttf", "segoeuib.ttf"]
-        if negrito
-        else ["arial.ttf", "segoeui.ttf"]
-    )
+    # A fonte embutida (Roboto, licenca Apache 2.0) vai primeiro: garante
+    # o mesmo visual em qualquer lugar (PC, Render, GitHub Actions). As
+    # fontes do Windows soh entram como opcao extra caso a embutida suma.
+    if negrito:
+        candidatos = [
+            os.path.join(_PASTA_FONTES, "Roboto-Bold.ttf"),
+            "arialbd.ttf", "seguisb.ttf", "segoeuib.ttf",
+        ]
+    else:
+        candidatos = [
+            os.path.join(_PASTA_FONTES, "Roboto-Regular.ttf"),
+            "arial.ttf", "segoeui.ttf",
+        ]
     for nome in candidatos:
         try:
             return ImageFont.truetype(nome, tamanho)
@@ -295,6 +314,25 @@ def _prompt_fundo_ia(produto, roteiro):
     ).strip()
 
 
+def _prompt_personagem_ia(produto, roteiro):
+    """Prompt do 'Jeito C': a personagem fixa segurando/usando o
+    produto real. As duas fotos (personagem + produto) vao como
+    referencia - aqui so descrevemos a cena/pose."""
+    return (
+        "A smiling young woman influencer presenting and holding the "
+        "real product from the second reference photo, looking at the "
+        "camera, natural candid lifestyle photo, bright soft lighting, "
+        "vertical 9:16 composition, realistic photography style, "
+        "product clearly visible in her hands. "
+        f"Product: {produto.get('nome', '')}. "
+        f"Mood: {roteiro.get('beneficio', '')}. "
+        "Keep her face and identity exactly as in the first reference "
+        "photo. Keep the product exactly as in the second reference "
+        "photo - same shape, same color, same branding, do not invent "
+        "a different product."
+    ).strip()
+
+
 def montar_prompt_video_ia(roteiro):
     """Prompt do 'Jeito B': anima a foto real do produto (first_frame).
 
@@ -369,7 +407,59 @@ def _montar_video_ia(produto, roteiro, nome_id, prompt_video=None):
     return caminho_mp4, f"{motor_tts} + Kairogen ({kairogen_media.MODELO_VIDEO})"
 
 
-def montar_video(produto, roteiro, modo_ia=None, prompt_video=None):
+def _montar_video_personagem_animada(produto, roteiro, nome_id, personagem_url):
+    """'Jeito C + D': gera a cena (personagem + produto real) e depois
+    anima ela com movimento de verdade, em vez de so compor a foto
+    parada com zoom. BEM mais caro (~2 + ~54 creditos) - so entra aqui
+    quando quem chamou pediu 'animar' explicitamente."""
+    from web import kairogen_media
+
+    caminho_mp4 = os.path.join(PASTA_SAIDA, f"{nome_id}.mp4")
+    caminho_audio_base = os.path.join(PASTA_SAIDA, f"_narr-{nome_id}")
+
+    _caminho_cena, url_cena = kairogen_media.personagem_com_produto(
+        personagem_url, produto.get("imagem", ""), _prompt_personagem_ia(produto, roteiro)
+    )
+    caminho_ia = kairogen_media.animar_personagem(url_cena)
+
+    caminho_audio, motor_tts = sintetizar(roteiro["narracao"], caminho_audio_base + ".wav")
+    narracao = AudioFileClip(caminho_audio)
+
+    bruto = VideoFileClip(caminho_ia)
+    video = _cobrir_video(bruto, LARGURA, ALTURA)
+
+    # Narracao nao pode passar do tamanho do video animado (senao corta
+    # feio no meio da fala) - mesmo criterio do modo "Vídeo por IA".
+    if narracao.duration > video.duration - 0.3:
+        narracao = narracao.subclipped(0, max(0.1, video.duration - 0.3))
+    video = video.with_audio(narracao.with_start(0.3))
+
+    video.write_videofile(
+        caminho_mp4,
+        fps=FPS,
+        codec="libx264",
+        audio_codec="aac",
+        preset=PRESET,
+        threads=os.cpu_count() or 2,
+        logger=None,
+    )
+
+    bruto.close()
+    video.close()
+    narracao.close()
+    for caminho in (caminho_audio, caminho_ia, _caminho_cena):
+        try:
+            os.remove(caminho)
+        except OSError:
+            pass
+
+    return caminho_mp4, f"{motor_tts} + Kairogen ({kairogen_media.MODELO_ANIMAR_PERSONAGEM})"
+
+
+def montar_video(
+    produto, roteiro, modo_ia=None, prompt_video=None, personagem_url=None,
+    animar_personagem=False,
+):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
 
     cenas = roteiro.get("cenas") or []
@@ -381,6 +471,11 @@ def montar_video(produto, roteiro, modo_ia=None, prompt_video=None):
     if modo_ia == "video":
         return _montar_video_ia(produto, roteiro, nome_id, prompt_video=prompt_video)
 
+    if modo_ia == "personagem" and animar_personagem:
+        if not personagem_url:
+            raise RuntimeError("modo_ia='personagem' precisa de personagem_url.")
+        return _montar_video_personagem_animada(produto, roteiro, nome_id, personagem_url)
+
     caminho_audio_base = os.path.join(PASTA_SAIDA, f"_narr-{nome_id}")
     caminho_mp4 = os.path.join(PASTA_SAIDA, f"{nome_id}.mp4")
 
@@ -391,13 +486,27 @@ def montar_video(produto, roteiro, modo_ia=None, prompt_video=None):
     # 2) imagem + fundo
     img_produto = _baixar_imagem(produto)
     fundo_extra = None
-    if modo_ia == "fundo":
+    if modo_ia == "personagem":
+        # "Jeito C": a foto do produto so serve de REFERENCIA pro
+        # Kairogen (pra nao inventar um produto errado) - quem aparece
+        # no quadro e' a cena gerada (personagem + produto), sem o
+        # recorte branco do produto por cima.
+        if not personagem_url:
+            raise RuntimeError("modo_ia='personagem' precisa de personagem_url.")
+        from web import kairogen_media
+
+        caminho_cena, _url_cena = kairogen_media.personagem_com_produto(
+            personagem_url, produto.get("imagem", ""), _prompt_personagem_ia(produto, roteiro)
+        )
+        fundo_extra = Image.open(caminho_cena).convert("RGB")
+        img_produto = None
+    elif modo_ia == "fundo":
         from web import kairogen_media
 
         caminho_fundo = kairogen_media.fundo_ia(_prompt_fundo_ia(produto, roteiro))
         fundo_extra = Image.open(caminho_fundo).convert("RGB")
     fundo = _fundo(img_produto, fundo_extra)
-    preco = _texto_preco(produto)
+    preco = _texto_preco(produto) if MOSTRAR_PRECO else ""
 
     # 3) cenas -> clipes
     duracoes = _duracoes(cenas, narracao.duration)

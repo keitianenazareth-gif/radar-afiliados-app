@@ -388,8 +388,16 @@ def api_campanha_video():
         return jsonify({"sucesso": False, "erro": "Produto sem nome."})
 
     modo_ia = dados.get("modo_video") or None
-    if modo_ia not in (None, "fundo", "video"):
+    if modo_ia not in (None, "fundo", "video", "personagem"):
         modo_ia = None
+
+    personagem_url = None
+    if modo_ia == "personagem":
+        from web.kairogen_media import PERSONAGENS
+
+        personagem_url = PERSONAGENS.get((dados.get("personagem") or "maya").lower())
+        if not personagem_url:
+            return jsonify({"sucesso": False, "erro": "Personagem inválida."})
 
     produto = _produto_com_foto_manual(dados)
     roteiro_pronto = dados.get("roteiro")
@@ -412,7 +420,9 @@ def api_campanha_video():
                 link=dados.get("link", ""),
             )
         caminho_mp4, motor_tts = montar_video(
-            produto, roteiro, modo_ia=modo_ia, prompt_video=prompt_video
+            produto, roteiro, modo_ia=modo_ia, prompt_video=prompt_video,
+            personagem_url=personagem_url,
+            animar_personagem=bool(dados.get("animar_personagem")),
         )
     except RuntimeError as erro:
         return jsonify({"sucesso": False, "erro": str(erro)})

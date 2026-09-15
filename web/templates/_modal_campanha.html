@@ -18,9 +18,27 @@
                     <input type="radio" name="modo-video" value="fundo" onchange="resetarEstadoPromptVideo()">
                     Fundo por IA (cenário gerado, sua foto do produto por cima — ~1 crédito)
                 </label>
-                <label style="display:block">
+                <label style="display:block;margin-bottom:4px">
                     <input type="radio" name="modo-video" value="video" onchange="resetarEstadoPromptVideo()">
                     Vídeo por IA (anima a foto real do produto — até 50 créditos)
+                </label>
+                <label style="display:block">
+                    <input type="radio" name="modo-video" value="personagem" onchange="resetarEstadoPromptVideo()">
+                    Personagem (Maya/Clara segurando o produto — ~2 créditos)
+                </label>
+            </div>
+
+            <div id="personagem-area" style="display:none;text-align:left;margin-bottom:10px">
+                <label for="personagem-select" class="linhas-info" style="display:block;margin-bottom:4px">
+                    Qual personagem?
+                </label>
+                <select id="personagem-select" style="width:100%;padding:8px;border-radius:8px">
+                    <option value="maya">Maya</option>
+                    <option value="clara">Clara</option>
+                </select>
+                <label style="display:block;margin-top:8px">
+                    <input type="checkbox" id="personagem-animar-check">
+                    Animar com movimento de verdade (sorriso, piscar — ~R$ 8,60 a mais)
                 </label>
             </div>
 

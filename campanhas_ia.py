@@ -18,6 +18,38 @@ URL_BASE = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Metodo VEND.IA ADS: formula de copywriting (material da Keiti) usada
+# pra guiar o Gemini a escrever ganchos/estrutura/CTA que realmente
+# prendem atencao, em vez de uma descricao generica do produto.
+# ---------------------------------------------------------------------------
+
+_METODO_VENDIA = """
+Siga o metodo VEND.IA ADS pra estruturar o texto:
+
+FORMULA: GANCHO -> PROBLEMA/DESEJO -> DEMONSTRACAO -> BENEFICIO -> OFERTA -> CTA
+(nem todo criativo precisa dos 6 blocos, mas comece SEMPRE por um gancho forte)
+
+Regra de ouro: nao venda o video, venda a ideia. O gancho faz a pessoa
+parar. A estrutura mantem o interesse. A oferta e o CTA dao direcao.
+
+Exemplos de ganchos (adapte um deles ao produto, nao copie literal):
+- "Eu nao esperava que isso funcionasse tao bem."
+- "Se voce esta procurando [beneficio], olha isso."
+- "Pare de fazer [erro/problema] desse jeito."
+- "Eu descobri um jeito muito mais simples de [resultado]."
+- "Olha o que da pra fazer com [produto]."
+- "3 segundos e voce vai entender por que isso chama atencao."
+
+Exemplos de CTA (adapte um, curto e direto):
+- "Confira os detalhes."
+- "Quero aproveitar."
+- "Veja como funciona."
+- "Descubra se faz sentido pra voce."
+- "Comece agora."
+""".strip()
+
+
 def _montar_prompt(
     plataforma,
     produto,
@@ -57,10 +89,12 @@ def _montar_prompt(
 
     partes += [
         "",
+        _METODO_VENDIA,
+        "",
         "Gere a resposta EXATAMENTE neste formato, com estes titulos:",
         "",
         "LEGENDA INSTAGRAM:",
-        "(texto curto e envolvente para o post/reels, ate 3 frases)",
+        "(comece com um gancho forte, ate 3 frases, termine com um CTA)",
         "",
         "ROTEIRO VIDEO (Shopee Video / Reels):",
         "(roteiro curto em 3 a 5 falas/cenas, para um video de 15-30s)",
@@ -240,14 +274,19 @@ def gerar_roteiro_video(
         "produto abaixo. Use SOMENTE os dados fornecidos - nao invente "
         "preco, numeros, avaliacoes nem caracteristicas.\n\n"
         + "\n".join(dados_produto)
-        + "\n\nRegras:\n"
-        "- 'titulo': chamada de ate 6 palavras.\n"
+        + "\n\n" + _METODO_VENDIA + "\n\n"
+        "Regras:\n"
+        "- 'titulo': o GANCHO do roteiro, ate 6 palavras, pra parar o "
+        "scroll (nao e so o nome do produto).\n"
         "- 'beneficio': 1 frase curta com o principal beneficio real.\n"
-        "- 'narracao': texto corrido, 40 a 70 palavras, tom natural de "
-        "conversa, para ser lido em voz alta em ~20 segundos. Sem "
-        "emojis, sem hashtags, sem marcadores.\n"
-        "- 'cenas': 3 a 5 itens. Cada 'texto_tela' e uma frase MUITO "
-        "curta (ate ~7 palavras) que aparece escrita na tela. "
+        "- 'narracao': texto corrido, 40 a 70 palavras, seguindo a "
+        "formula gancho -> problema/desejo -> beneficio -> CTA, tom "
+        "natural de conversa, pra ser lido em voz alta em ~20 "
+        "segundos. Sem emojis, sem hashtags, sem marcadores.\n"
+        "- 'cenas': 3 a 5 itens que acompanham a formula (comece pelo "
+        "gancho, mostre o beneficio/demonstracao no meio, feche com "
+        "oferta+CTA na ultima cena). Cada 'texto_tela' e uma frase "
+        "MUITO curta (ate ~7 palavras) que aparece escrita na tela. "
         "'segundos' entre 3 e 6. A soma dos segundos deve ficar entre "
         "15 e 30."
     )

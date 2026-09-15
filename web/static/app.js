@@ -47,6 +47,10 @@ function resetarEstadoPromptVideo() {
     if (botao) botao.textContent = "🎬 GERAR VÍDEO (15-30s)";
     const status = document.getElementById("video-status");
     if (status) status.textContent = "";
+
+    const modoEscolhido = (document.querySelector('input[name="modo-video"]:checked') || {}).value;
+    const areaPersonagem = document.getElementById("personagem-area");
+    if (areaPersonagem) areaPersonagem.style.display = modoEscolhido === "personagem" ? "block" : "none";
 }
 
 function enviarFotoManual(evento) {
@@ -183,6 +187,10 @@ function gerarVideoCampanha() {
         dadosEnvio.roteiro = roteiroVideoIA;
         dadosEnvio.prompt_video = campoPrompt.value;
     }
+    if (modoEscolhido === "personagem") {
+        dadosEnvio.personagem = (document.getElementById("personagem-select") || {}).value || "maya";
+        dadosEnvio.animar_personagem = !!(document.getElementById("personagem-animar-check") || {}).checked;
+    }
 
     botao.disabled = true;
     saida.innerHTML = "";
@@ -192,6 +200,10 @@ function gerarVideoCampanha() {
             ? "Gerando vídeo com IA... isso pode levar de 1 a 3 minutos (a IA anima a foto real do produto)."
             : modoEscolhido === "fundo"
             ? "Gerando fundo com IA e montando o vídeo... isso pode levar até 1-2 minutos."
+            : modoEscolhido === "personagem"
+            ? (dadosEnvio.animar_personagem
+                ? "Gerando a cena da personagem, animando com movimento e montando o vídeo... isso pode levar de 2 a 4 minutos."
+                : "Gerando a cena da personagem com o produto e montando o vídeo... isso pode levar até 1-2 minutos.")
             : "Gerando vídeo... isso pode levar até 1 minuto (roteiro + narração + montagem).";
 
     fetch("/api/campanha/video", {

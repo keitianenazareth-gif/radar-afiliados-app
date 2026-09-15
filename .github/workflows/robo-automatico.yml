@@ -35,4 +35,6 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          KAIROGEN_REFRESH_TOKEN: ${{ secrets.KAIROGEN_REFRESH_TOKEN }}
+          VIDEO_KEN_BURNS: "1"
         run: python robo_automatico.py

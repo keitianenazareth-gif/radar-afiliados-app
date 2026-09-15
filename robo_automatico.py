@@ -5,12 +5,15 @@ Roda o pipeline inteiro sozinho, sem ninguem clicar em nada:
 
     1. Escolhe um produto novo da Shopee (o melhor "nota de
        oportunidade" que ainda nao foi postado recentemente).
-    2. Gera o roteiro do video e a legenda (Gemini - campanhas_ia.py).
-    3. Monta o video (web/video_campanha.py - modo padrao, sem custo
-       de credito Kairogen).
-    4. Salva o video na Galeria (Cloudinary + Upstash).
-    5. Posta como Reel no Instagram (@clubedoquero).
-    6. Guarda o link do produto no historico (Upstash), pra nao
+    2. Gera o roteiro do video e a legenda (Gemini - campanhas_ia.py,
+       seguindo o metodo VEND.IA ADS: gancho -> problema/desejo ->
+       beneficio -> CTA).
+    3. Gera uma foto nova da personagem fixa (Maya ou Clara, alternando
+       a cada post) segurando o produto real (Kairogen).
+    4. Monta o video com essa cena (web/video_campanha.py).
+    5. Salva o video na Galeria (Cloudinary + Upstash).
+    6. Posta como Reel no Instagram (@clubedoquero).
+    7. Guarda o link do produto no historico (Upstash), pra nao
        repetir o mesmo produto numa proxima rodada.
 
 Uso manual (pra testar):
@@ -41,10 +44,15 @@ from shopee import buscar_produtos, numero
 from campanhas_ia import gerar_campanha, gerar_roteiro_video
 from web import galeria
 from web.instagram_publish import InstagramPublishError, postar_reel
+from web.kairogen_media import PERSONAGENS
 from web.video_campanha import montar_video
 
 CHAVE_HISTORICO = "robo:historico_links"
 MAX_HISTORICO = 300
+
+# Alterna entre as personagens fixas a cada post - ver PERSONAGENS em
+# web/kairogen_media.py.
+_NOMES_PERSONAGENS = list(PERSONAGENS.items())
 
 _CABECALHOS_CAMPANHA = [
     "LEGENDA INSTAGRAM:",
@@ -169,7 +177,14 @@ def rodar() -> None:
     legenda = _montar_legenda_instagram(texto_campanha, roteiro, produto)
     print("Legenda gerada.")
 
-    caminho_mp4, _motor_tts = montar_video(produto, roteiro)
+    # modo_ia="personagem": o Kairogen gera a Maya/Clara segurando o
+    # produto real (as duas fotos - personagem e produto - vao como
+    # referencia, pra nao sair produto errado). Alterna a cada post.
+    nome_personagem, url_personagem = _NOMES_PERSONAGENS[len(historico) % len(_NOMES_PERSONAGENS)]
+    print(f"Personagem desta rodada: {nome_personagem}")
+    caminho_mp4, _motor_tts = montar_video(
+        produto, roteiro, modo_ia="personagem", personagem_url=url_personagem
+    )
     print(f"Video gerado em {caminho_mp4}")
 
     item_galeria = galeria.adicionar_item(caminho_mp4, "video", nome_original=produto["nome"])
