@@ -67,10 +67,14 @@ def _upstash_cmd(cmd: list):
     token = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
     if not url or not token:
         raise RuntimeError("Upstash nao configurado (UPSTASH_REDIS_REST_URL/TOKEN).")
-    resp = requests.post(
-        url, headers={"Authorization": f"Bearer {token}"}, json=cmd, timeout=15
-    )
-    resp.raise_for_status()
+    try:
+        resp = requests.post(
+            url, headers={"Authorization": f"Bearer {token}"}, json=cmd, timeout=15
+        )
+    except requests.RequestException as erro:
+        raise RuntimeError(f"Upstash inacessivel: {erro}") from erro
+    if resp.status_code != 200:
+        raise RuntimeError(f"Upstash erro HTTP {resp.status_code}: {resp.text[:200]}")
     return resp.json().get("result")
 
 
