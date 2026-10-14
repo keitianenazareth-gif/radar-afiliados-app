@@ -465,7 +465,8 @@ def rodar_teste() -> None:
         _aviso_actions("warning", "Lote vazio", "Nenhuma oferta, item da fila ou cupom disponivel.")
     for n, msg in enumerate(lote, start=1):
         print(f"\n--- {n}/{len(lote)} {msg['titulo']} ---\n{msg['texto']}")
-        _aviso_actions("notice", f"{n} - {msg['tipo']}", msg["texto"])
+        foto = f"\n[foto] {msg['imagem']}" if msg.get("imagem") else ""
+        _aviso_actions("notice", f"{n} - {msg['tipo']}", msg["texto"] + foto)
     print("\nModo teste: nada foi enviado.")
 
 
