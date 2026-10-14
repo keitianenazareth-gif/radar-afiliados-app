@@ -266,6 +266,8 @@ def rodar(teste: bool = False) -> None:
     ofertas = escolher_ofertas(quantidade, historico)
     if not ofertas:
         print("Nenhuma oferta nova agora. Nada foi enviado.")
+        if os.environ.get("GITHUB_ACTIONS"):
+            print("::warning title=Sem ofertas::Nenhuma oferta passou nos filtros.")
         return
 
     grupo = _env("WHATSAPP_GRUPO_ID")
@@ -275,6 +277,10 @@ def rodar(teste: bool = False) -> None:
         texto = montar_mensagem(p, link)
         print(f"\n--- Oferta {n}/{len(ofertas)} ({p['_lista']}) ---\n{texto}")
         if teste:
+            if os.environ.get("GITHUB_ACTIONS"):
+                # Aparece como aviso na pagina da execucao (aba Actions).
+                msg = texto.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+                print(f"::notice title=Oferta {n} ({p['_lista']})::{msg}")
             continue
         if n > 1:
             pausa = random.randint(pausa_min, pausa_max)
@@ -313,4 +319,6 @@ if __name__ == "__main__":
             rodar(teste="--teste" in args)
     except (RuntimeError, requests.RequestException) as erro:
         print(f"ERRO: {erro}")
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::error title=Robo WhatsApp::{str(erro)[:500]}")
         sys.exit(1)
