@@ -105,3 +105,4 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 | `web/instagram_publish.py` | Publica o Reel no Instagram (Graph API) |
 | `buildozer.spec` / `.github/workflows/build-apk.yml` | Build do APK |
 | `render.yaml` | Deploy da versão web no Render |
+| `robo_whatsapp.py` / `.github/workflows/robo-whatsapp.yml` | Robô que manda lotes de ofertas da Shopee no grupo do WhatsApp (Evolution API, chip exclusivo) às 9h, 12h e 19h |

@@ -1,0 +1,56 @@
+name: Robo WhatsApp - Ofertas no grupo
+
+# Manda um lote de ofertas da Shopee no grupo do WhatsApp em horarios
+# fixos: 9h, 12h e 19h (horario de Brasilia = 12h, 15h e 22h UTC).
+# Enquanto os Secrets WHATSAPP_* nao existirem, ele so avisa e nao envia.
+#
+# Manual: Actions -> Robo WhatsApp -> Run workflow, escolhendo o modo:
+#   enviar         -> manda o lote de verdade
+#   teste          -> so mostra as mensagens no log, nao envia
+#   listar_grupos  -> mostra os grupos do chip e seus IDs
+on:
+  schedule:
+    - cron: "0 12,15,22 * * *"
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "O que fazer"
+        type: choice
+        default: teste
+        options: [teste, enviar, listar_grupos]
+
+jobs:
+  ofertas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install requests
+
+      - name: Rodar o robo do WhatsApp
+        env:
+          SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+          SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          WHATSAPP_API_URL: ${{ secrets.WHATSAPP_API_URL }}
+          WHATSAPP_API_KEY: ${{ secrets.WHATSAPP_API_KEY }}
+          WHATSAPP_INSTANCIA: ${{ secrets.WHATSAPP_INSTANCIA }}
+          WHATSAPP_GRUPO_ID: ${{ secrets.WHATSAPP_GRUPO_ID }}
+          WHATSAPP_POR_LOTE: "3"
+          MODO: ${{ github.event.inputs.modo || 'enviar' }}
+        run: |
+          if [ "$MODO" = "listar_grupos" ]; then
+            python robo_whatsapp.py --listar-grupos
+          elif [ "$MODO" = "teste" ]; then
+            python robo_whatsapp.py --teste
+          else
+            python robo_whatsapp.py
+          fi

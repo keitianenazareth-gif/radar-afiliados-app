@@ -102,13 +102,7 @@ def _configuracao_opcao(opcao, termo=""):
     raise ValueError("Opcao invalida.")
 
 
-def _consultar_api(keyword, sort_type, is_ams):
-    if not APP_ID or not SECRET:
-        raise RuntimeError(
-            "Credenciais da Shopee nao configuradas. "
-            "Defina SHOPEE_APP_ID e SHOPEE_SECRET."
-        )
-
+def _consultar_api(keyword, sort_type, is_ams, campos_extras=""):
     # Escapa aspas no termo para nao quebrar a query GraphQL.
     keyword_seguro = keyword.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -133,10 +127,46 @@ def _consultar_api(keyword, sort_type, is_ams):
       commission
       offerLink
       imageUrl
+      {campos_extras}
     }}
   }}
 }}
 """
+
+    dados = _chamar_graphql(query)
+    return dados.get("productOfferV2", {}).get("nodes", []) or []
+
+
+def gerar_link_curto(url_origem, sub_ids=None):
+    """Gera um link de afiliado curto (s.shopee.com.br/...) com subIds,
+    para saber depois, no relatorio de conversao, de onde veio a venda
+    (ex.: sub_ids=["whatsapp"])."""
+    url_segura = str(url_origem).replace("\\", "\\\\").replace('"', '\\"')
+    lista = ",".join(
+        '"' + str(s).replace('"', "") + '"' for s in (sub_ids or [])
+    )
+    query = f"""
+mutation {{
+  generateShortLink(input: {{originUrl: "{url_segura}", subIds: [{lista}]}}) {{
+    shortLink
+  }}
+}}
+"""
+    dados = _chamar_graphql(query)
+    link = (dados.get("generateShortLink") or {}).get("shortLink")
+    if not link:
+        raise RuntimeError("A Shopee nao devolveu o link curto.")
+    return link
+
+
+def _chamar_graphql(query):
+    """Assina e envia uma query/mutation para a API de afiliados.
+    Devolve o conteudo de "data"."""
+    if not APP_ID or not SECRET:
+        raise RuntimeError(
+            "Credenciais da Shopee nao configuradas. "
+            "Defina SHOPEE_APP_ID e SHOPEE_SECRET."
+        )
 
     payload = json.dumps(
         {"query": query},
@@ -169,11 +199,11 @@ def _consultar_api(keyword, sort_type, is_ams):
     except ValueError:
         raise RuntimeError(f"Resposta invalida da Shopee (HTTP {response.status_code}).")
 
-    if "data" not in dados:
+    if not dados.get("data"):
         erro = dados.get("errors") or dados
         raise RuntimeError(f"Erro da Shopee: {erro}")
 
-    return dados.get("data", {}).get("productOfferV2", {}).get("nodes", []) or []
+    return dados["data"]
 
 
 def buscar_produtos(opcao, termo="", limite=10):
