@@ -50,12 +50,10 @@ from shopee import _consultar_api, gerar_link_curto, numero
 CHAVE_HISTORICO = "robo_whatsapp:historico"
 MAX_HISTORICO = 600
 
-# (nome da lista, sortType da API, ordenacao local)
-LISTAS = [
-    ("mais vendidos", 2, lambda p: numero(p.get("sales"))),
-    ("maior comissao", 5, lambda p: numero(p.get("commission"))),
-    ("maiores descontos", 4, lambda p: numero(p.get("priceDiscountRate"))),
-]
+# sortType da API de afiliados: 2 = mais vendidos, 4 = menor preco,
+# 5 = maior comissao. Nao existe ordenacao por desconto: a lista de
+# descontos junta tudo que foi buscado e ordena pelo desconto.
+DESCONTO_MINIMO = 20  # %
 
 # Filtro de qualidade minima pra nao mandar produto ruim no grupo.
 VENDAS_MINIMAS = 100
@@ -122,11 +120,24 @@ def _passa_no_filtro(p: dict) -> bool:
 
 def escolher_ofertas(quantidade: int, historico: list) -> list:
     """Mistura as 3 listas (uma de cada vez) ate completar o lote."""
-    filas = []
-    for nome, sort_type, chave in LISTAS:
-        produtos = [p for p in _buscar_lista(sort_type) if _passa_no_filtro(p)]
-        produtos.sort(key=chave, reverse=True)
-        filas.append((nome, produtos))
+    vendidos = [p for p in _buscar_lista(2) if _passa_no_filtro(p)]
+    comissao = [p for p in _buscar_lista(5) if _passa_no_filtro(p)]
+    baratos = [p for p in _buscar_lista(4) if _passa_no_filtro(p)]
+
+    todos = {}
+    for p in vendidos + comissao + baratos:
+        todos.setdefault(str(p.get("itemId")), p)
+    descontos = [p for p in todos.values()
+                 if numero(p.get("priceDiscountRate")) >= DESCONTO_MINIMO]
+
+    vendidos.sort(key=lambda p: numero(p.get("sales")), reverse=True)
+    comissao.sort(key=lambda p: numero(p.get("commission")), reverse=True)
+    descontos.sort(key=lambda p: numero(p.get("priceDiscountRate")), reverse=True)
+    filas = [
+        ("mais vendidos", vendidos),
+        ("maior comissao", comissao),
+        ("maiores descontos", descontos),
+    ]
 
     escolhidos, ids_usados = [], set(str(i) for i in historico)
     while len(escolhidos) < quantidade and any(f for _, f in filas):
