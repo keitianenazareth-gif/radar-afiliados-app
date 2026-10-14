@@ -105,4 +105,5 @@ App para pesquisar produtos de programas de afiliados e gerar material de divulg
 | `web/instagram_publish.py` | Publica o Reel no Instagram (Graph API) |
 | `buildozer.spec` / `.github/workflows/build-apk.yml` | Build do APK |
 | `render.yaml` | Deploy da versão web no Render |
-| `robo_whatsapp.py` / `.github/workflows/robo-whatsapp.yml` | Robô que manda lotes de ofertas da Shopee no grupo do WhatsApp (Evolution API, chip exclusivo) às 9h, 12h e 19h |
+| `robo_whatsapp.py` / `.github/workflows/robo-whatsapp.yml` | Robô que manda lotes de ofertas no grupo do WhatsApp (Evolution API, chip exclusivo): Shopee automática + fila de outras lojas + cupons. Workflow roda de hora em hora e só envia nos horários escolhidos |
+| `whatsapp_dados.py` / `web/templates/whatsapp.html` | Ajustes, fila, cupons e histórico do robô (Upstash) e a página `/whatsapp` para controlar pelo celular |

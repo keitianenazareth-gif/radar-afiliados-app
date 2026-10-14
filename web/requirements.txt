@@ -5,3 +5,4 @@ pillow
 moviepy>=2.0
 imageio-ffmpeg
 edge-tts
+tzdata

@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block titulo %}WhatsApp - Radar Afiliados{% endblock %}
+{% block conteudo %}
+<div class="wa-pagina">
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>💬 WHATSAPP</h1>
+    <p class="subtitulo">Robô de ofertas no grupo de promoções</p>
+
+    {% for mensagem in get_flashed_messages() %}
+    <p class="aviso">{{ mensagem }}</p>
+    {% endfor %}
+
+    {% if erro_dados %}
+    <div class="card card-erro">
+        <strong>⚠️ Não consegui carregar os dados do robô</strong>
+        <p class="linhas-info">{{ erro_dados }}</p>
+        <p class="linhas-info">Confira se UPSTASH_REDIS_REST_URL/TOKEN estão no Environment do Render.</p>
+    </div>
+    {% endif %}
+
+    {# ------------------------------------------------ status #}
+    <div class="card">
+        <div class="wa-status">
+            <div>
+                {% if config.ativo %}
+                <span class="selo selo-verde">● LIGADO</span>
+                {% else %}
+                <span class="selo selo-cinza">⏸ PAUSADO</span>
+                {% endif %}
+                <p class="linhas-info" style="margin:8px 0 0">
+                    {% if config.horarios %}
+                    Envia às {% for h in config.horarios %}{{ h }}h{% if not loop.last %}, {% endif %}{% endfor %}
+                    · {{ config.por_lote }} oferta{{ 's' if config.por_lote != 1 }} por lote
+                    {% else %}
+                    Nenhum horário marcado nos ajustes.
+                    {% endif %}
+                </p>
+            </div>
+            <form action="{{ url_for('whatsapp_ligar') }}" method="post">
+                <input type="hidden" name="ativo" value="{{ '0' if config.ativo else '1' }}">
+                <button type="submit" class="botao {{ 'botao-secundario' if config.ativo else 'botao-verde' }}">
+                    {{ 'PAUSAR' if config.ativo else 'LIGAR' }}
+                </button>
+            </form>
+        </div>
+
+        {% if faltando %}
+        <p class="aviso aviso-amarelo">
+            📵 WhatsApp ainda não conectado. Quando o chip estiver pronto, a gente
+            conecta e o robô começa a enviar. Até lá, dá para montar a fila,
+            cadastrar cupons e ver a prévia.
+        </p>
+        {% endif %}
+
+        <div class="linha" style="margin-top:12px">
+            <form action="{{ url_for('whatsapp_previa') }}" method="post" class="inline">
+                <button type="submit" class="botao botao-destaque">👀 VER PRÓXIMO LOTE</button>
+            </form>
+            <form action="{{ url_for('whatsapp_enviar_agora') }}" method="post" class="inline"
+                  onsubmit="return confirm('Enviar um lote agora no grupo?');">
+                <button type="submit" class="botao botao-primario" {{ 'disabled' if faltando }}>🚀 ENVIAR AGORA</button>
+            </form>
+        </div>
+    </div>
+
+    {# ------------------------------------------------ previa #}
+    {% if lote is not none %}
+    <div class="card" id="previa">
+        <strong>👀 Próximo lote</strong>
+        <p class="linhas-info">É o que sairia se enviasse agora. Os links da Shopee aparecem
+            no formato longo aqui, e no envio viram o link curto com a marcação "whatsapp".
+            Como as categorias mudam a cada hora, o lote do horário pode vir diferente.</p>
+        {% if erro_lote %}<p class="aviso aviso-amarelo">{{ erro_lote }}</p>{% endif %}
+        {% for msg in lote %}
+        <div class="wa-msg">
+            {% if msg.imagem %}<img src="{{ msg.imagem }}" alt="" loading="lazy">{% endif %}
+            <div class="wa-msg-texto">{{ msg.texto }}</div>
+            {% if msg.tipo == 'shopee' %}
+            <form action="{{ url_for('whatsapp_pular', item_id=msg.ref) }}" method="post">
+                <button type="submit" class="botao-toggle">Pular este produto</button>
+            </form>
+            {% elif msg.tipo == 'fila' %}
+            <small class="linhas-info">Da sua fila</small>
+            {% else %}
+            <small class="linhas-info">Cupom</small>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="linhas-info">Nada para enviar agora.</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ------------------------------------------------ fila #}
+    <details class="card" id="fila" {{ 'open' if fila }}>
+        <summary><strong>🛍️ Fila de ofertas de outras lojas</strong>
+            <span class="contador">{{ fila|length }}</span></summary>
+        <p class="linhas-info">Cole aqui ofertas do Mercado Livre, Amazon, Shein, Temu...
+            Em cada lote entra{{ 'm' if config.fila_por_lote != 1 }} {{ config.fila_por_lote }}
+            da fila, na ordem abaixo. Depois de enviado, o item sai da fila.</p>
+
+        <form action="{{ url_for('whatsapp_fila_adicionar') }}" method="post" class="sub-card">
+            <input type="url" name="link" placeholder="Link de afiliado do produto (https://...)" required>
+            <select name="loja">
+                <option value="auto">Loja: descobrir pelo link</option>
+                {% for loja in lojas %}<option>{{ loja }}</option>{% endfor %}
+            </select>
+            <input type="text" name="nome" placeholder="Nome (opcional: tento pegar sozinho)">
+            <input type="text" name="preco" placeholder="Preço, ex: 89,90 (opcional)">
+            <input type="text" name="observacao" placeholder="Detalhe extra, ex: Frete grátis (opcional)">
+            <details>
+                <summary class="linhas-info">Foto (opcional)</summary>
+                <input type="url" name="imagem" placeholder="Link da foto (https://...)">
+            </details>
+            {% if not config.amazon_tag %}
+            <p class="linhas-info">💡 Amazon: cadastre sua tag nos Ajustes e o Radar põe a tag sozinho no link.</p>
+            {% endif %}
+            <button type="submit" class="botao botao-destaque">+ ADICIONAR NA FILA</button>
+        </form>
+
+        {% for item in fila %}
+        <div class="wa-item">
+            {% if item.imagem %}<img src="{{ item.imagem }}" alt="" loading="lazy">{% endif %}
+            <div class="wa-item-info">
+                <strong>{{ loop.index }}. {{ item.nome }}</strong>
+                <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}</span>
+                <a href="{{ item.link }}" target="_blank" rel="noopener" class="link-pequeno">abrir link</a>
+            </div>
+            <div class="wa-item-acoes">
+                <form action="{{ url_for('whatsapp_fila_mover', item_id=item.id, direcao='cima') }}" method="post">
+                    <button type="submit" class="botao-toggle" title="Subir" {{ 'disabled' if loop.first }}>▲</button>
+                </form>
+                <form action="{{ url_for('whatsapp_fila_mover', item_id=item.id, direcao='baixo') }}" method="post">
+                    <button type="submit" class="botao-toggle" title="Descer" {{ 'disabled' if loop.last }}>▼</button>
+                </form>
+                <form action="{{ url_for('whatsapp_fila_remover', item_id=item.id) }}" method="post"
+                      onsubmit="return confirm('Tirar da fila?');">
+                    <button type="submit" class="botao-toggle" title="Remover">✕</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="linhas-info">Fila vazia: os lotes saem só com ofertas da Shopee.</p>
+        {% endfor %}
+    </details>
+
+    {# ------------------------------------------------ cupons #}
+    <details class="card" id="cupons" {{ 'open' if cupons }}>
+        <summary><strong>🎟️ Cupons</strong>
+            <span class="contador">{{ cupons|length }}</span></summary>
+        <p class="linhas-info">Cada cupom entra no começo de um lote, no máximo uma vez por dia,
+            até a validade. O código também vai numa mensagem separada, para copiar com um toque.</p>
+
+        <form action="{{ url_for('whatsapp_cupons_adicionar') }}" method="post" class="sub-card">
+            <select name="loja">
+                {% for loja in lojas %}<option>{{ loja }}</option>{% endfor %}
+            </select>
+            <input type="text" name="codigo" placeholder="Código, ex: QUERO20">
+            <input type="text" name="descricao" placeholder="Descrição, ex: R$ 20 OFF acima de R$ 99">
+            <input type="url" name="link" placeholder="Link do cupom ou da loja (opcional)">
+            <label class="linhas-info">Válido até (opcional)
+                <input type="date" name="validade" min="{{ hoje }}">
+            </label>
+            <button type="submit" class="botao botao-destaque">+ CADASTRAR CUPOM</button>
+        </form>
+
+        {% for c in cupons %}
+        <div class="wa-item">
+            <div class="wa-item-info">
+                <strong>{{ c.loja }}{% if c.codigo %} · {{ c.codigo }}{% endif %}</strong>
+                <span class="linhas-info">{{ c.descricao }}</span>
+                <span class="linhas-info">
+                    {% if c.validade %}{% if c.validade < hoje %}❌ vencido{% else %}até {{ c.validade[8:10] }}/{{ c.validade[5:7] }}{% endif %}{% else %}sem validade{% endif %}
+                    {% if c.ultimo_envio == hoje %} · ✅ já saiu hoje{% endif %}
+                </span>
+            </div>
+            <div class="wa-item-acoes">
+                <form action="{{ url_for('whatsapp_cupons_remover', cupom_id=c.id) }}" method="post"
+                      onsubmit="return confirm('Apagar este cupom?');">
+                    <button type="submit" class="botao-toggle" title="Apagar">✕</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="linhas-info">Nenhum cupom cadastrado.</p>
+        {% endfor %}
+    </details>
+
+    {# ------------------------------------------------ historico #}
+    <details class="card" id="historico">
+        <summary><strong>🕒 Histórico de envios</strong></summary>
+        {% for e in log %}
+        <div class="wa-log {{ '' if e.ok else 'wa-log-erro' }}">
+            <span class="linhas-info">{{ e.quando }} · {{ e.origem }}</span>
+            <span>{{ '✅' if e.ok else '⚠️' }} {{ e.titulo }}</span>
+            {% if e.erro %}<span class="linhas-info">{{ e.erro }}</span>{% endif %}
+        </div>
+        {% else %}
+        <p class="linhas-info">Nada enviado ainda.</p>
+        {% endfor %}
+    </details>
+
+    {# ------------------------------------------------ ajustes #}
+    <details class="card" id="ajustes">
+        <summary><strong>⚙️ Ajustes</strong></summary>
+        <form action="{{ url_for('whatsapp_ajustes') }}" method="post">
+            <p class="rotulo">Horários de envio (Brasília)</p>
+            <div class="grade-horas">
+                {% for h in horas %}
+                <label class="hora"><input type="checkbox" name="horarios" value="{{ h }}"
+                    {{ 'checked' if h in config.horarios }}><span>{{ h }}h</span></label>
+                {% endfor %}
+            </div>
+            <p class="linhas-info">O envio pode atrasar uns minutos: o GitHub nem sempre roda na hora exata.</p>
+
+            <label class="rotulo">Ofertas por lote
+                <input type="number" name="por_lote" min="1" max="10" value="{{ config.por_lote }}">
+            </label>
+            <label class="rotulo">Quantas dessas vêm da fila de outras lojas
+                <input type="number" name="fila_por_lote" min="0" max="10" value="{{ config.fila_por_lote }}">
+            </label>
+            <label class="rotulo">Cupons por lote
+                <input type="number" name="cupons_por_lote" min="0" max="3" value="{{ config.cupons_por_lote }}">
+            </label>
+            <label class="rotulo">Tag de afiliada da Amazon (termina em -20)
+                <input type="text" name="amazon_tag" placeholder="ex: clubedoquero-20" value="{{ config.amazon_tag }}">
+            </label>
+
+            <label class="rotulo">Palavras proibidas (uma por linha)
+                <textarea name="palavras_bloqueadas" style="min-height:120px">{{ config.palavras_bloqueadas|join('\n') }}</textarea>
+            </label>
+            <p class="linhas-info">Produtos da Shopee com essas palavras no nome são pulados.
+                Vale o começo da palavra: "emagrec" pega emagrecer, emagrecedor...</p>
+
+            <label class="rotulo">Categorias da Shopee em rodízio (uma por linha)
+                <textarea name="categorias" style="min-height:160px">{{ config.categorias|reject('equalto', '')|join('\n') }}</textarea>
+            </label>
+            <label class="linhas-info"><input type="checkbox" name="incluir_geral" value="1"
+                {{ 'checked' if '' in config.categorias }}> Incluir também a vitrine geral da Shopee</label>
+
+            <div style="margin-top:14px">
+                <button type="submit" class="botao botao-destaque">SALVAR AJUSTES</button>
+            </div>
+        </form>
+    </details>
+</div>
+{% endblock %}

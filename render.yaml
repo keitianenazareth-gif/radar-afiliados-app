@@ -51,6 +51,15 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # --- WhatsApp (robo de ofertas no grupo - pagina /whatsapp) ---
+      - key: WHATSAPP_API_URL
+        sync: false
+      - key: WHATSAPP_API_KEY
+        sync: false
+      - key: WHATSAPP_INSTANCIA
+        sync: false
+      - key: WHATSAPP_GRUPO_ID
+        sync: false
       # --- opcional: reduzir o video se a memoria apertar no plano free ---
       # - key: VIDEO_LARGURA
       #   value: "720"

@@ -1,27 +1,33 @@
 name: Robo WhatsApp - Ofertas no grupo
 
-# Manda um lote de ofertas da Shopee no grupo do WhatsApp em horarios
-# fixos: 9h, 12h e 19h (horario de Brasilia = 12h, 15h e 22h UTC).
+# Roda de hora em hora, mas SO envia nos horarios escolhidos na pagina
+# /whatsapp do Radar web (padrao 9h, 12h e 19h de Brasilia) e se o robo
+# estiver ligado la. Nas outras horas ele so confere e encerra em segundos.
 # Enquanto os Secrets WHATSAPP_* nao existirem, ele so avisa e nao envia.
 #
 # Manual: Actions -> Robo WhatsApp -> Run workflow, escolhendo o modo:
-#   enviar         -> manda o lote de verdade
-#   teste          -> so mostra as mensagens no log, nao envia
+#   teste          -> so mostra o proximo lote como avisos, nao envia
+#   enviar_agora   -> manda um lote ja, fora do horario
 #   listar_grupos  -> mostra os grupos do chip e seus IDs
 on:
   schedule:
-    - cron: "0 12,15,22 * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       modo:
         description: "O que fazer"
         type: choice
         default: teste
-        options: [teste, enviar, listar_grupos]
+        options: [teste, enviar_agora, listar_grupos]
+
+concurrency:
+  group: robo-whatsapp
+  cancel-in-progress: false
 
 jobs:
   ofertas:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Baixar o codigo
         uses: actions/checkout@v4
@@ -32,7 +38,7 @@ jobs:
           python-version: "3.12"
 
       - name: Instalar dependencias
-        run: pip install requests
+        run: pip install requests tzdata
 
       - name: Rodar o robo do WhatsApp
         env:
@@ -44,13 +50,11 @@ jobs:
           WHATSAPP_API_KEY: ${{ secrets.WHATSAPP_API_KEY }}
           WHATSAPP_INSTANCIA: ${{ secrets.WHATSAPP_INSTANCIA }}
           WHATSAPP_GRUPO_ID: ${{ secrets.WHATSAPP_GRUPO_ID }}
-          WHATSAPP_POR_LOTE: "3"
-          MODO: ${{ github.event.inputs.modo || 'enviar' }}
+          MODO: ${{ github.event.inputs.modo || 'agendado' }}
         run: |
-          if [ "$MODO" = "listar_grupos" ]; then
-            python robo_whatsapp.py --listar-grupos
-          elif [ "$MODO" = "teste" ]; then
-            python robo_whatsapp.py --teste
-          else
-            python robo_whatsapp.py
-          fi
+          case "$MODO" in
+            listar_grupos) python robo_whatsapp.py --listar-grupos ;;
+            teste)         python robo_whatsapp.py --teste ;;
+            enviar_agora)  python robo_whatsapp.py --agora ;;
+            *)             python robo_whatsapp.py ;;
+          esac

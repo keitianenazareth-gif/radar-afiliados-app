@@ -546,6 +546,228 @@ def galeria_postar_instagram(item_id):
     return redirect(url_for("galeria_pagina"))
 
 
+# ---------------------------------------------------------------------------
+# WhatsApp - controle do robo de ofertas no grupo (robo_whatsapp.py).
+# Ajustes, fila, cupons e historico ficam no Upstash (whatsapp_dados.py):
+# o robo agendado no GitHub Actions le daqui antes de cada envio.
+# ---------------------------------------------------------------------------
+
+_DOMINIOS_LOJA = [
+    ("mercadolivre", "Mercado Livre"), ("mercadolibre", "Mercado Livre"),
+    ("meli.la", "Mercado Livre"), ("amazon.", "Amazon"), ("amzn.", "Amazon"),
+    ("shopee", "Shopee"), ("shein", "Shein"), ("temu", "Temu"),
+    ("magazineluiza", "Magalu"), ("magalu", "Magalu"),
+]
+
+
+def _loja_do_link(link):
+    link = (link or "").lower()
+    return next((loja for trecho, loja in _DOMINIOS_LOJA if trecho in link), "Outra")
+
+
+def _pagina_whatsapp(lote=None, erro_lote=None):
+    import robo_whatsapp
+    import whatsapp_dados as wd
+
+    contexto = {
+        "faltando": robo_whatsapp.whatsapp_configurado(),
+        "lojas": wd.LOJAS,
+        "lote": lote,
+        "erro_lote": erro_lote,
+        "hoje": wd.agora_brasil().strftime("%Y-%m-%d"),
+        "horas": list(range(6, 24)),
+        "erro_dados": None,
+    }
+    try:
+        contexto.update(
+            config=wd.ler_config(),
+            fila=wd.listar_fila(),
+            cupons=wd.listar_cupons(),
+            log=wd.ler_log()[:30],
+        )
+    except RuntimeError as erro:
+        contexto.update(config=dict(wd.CONFIG_PADRAO), fila=[], cupons=[], log=[],
+                        erro_dados=str(erro))
+    return render_template("whatsapp.html", **contexto)
+
+
+@app.route("/whatsapp")
+def whatsapp():
+    return _pagina_whatsapp()
+
+
+@app.route("/whatsapp/previa", methods=["POST"])
+def whatsapp_previa():
+    import robo_whatsapp
+    import whatsapp_dados as wd
+
+    try:
+        lote = robo_whatsapp.montar_lote(wd.ler_config(), gerar_links=False)
+        return _pagina_whatsapp(lote=lote)
+    except Exception as erro:  # noqa: BLE001
+        return _pagina_whatsapp(lote=[], erro_lote=str(erro))
+
+
+@app.route("/whatsapp/pular/<item_id>", methods=["POST"])
+def whatsapp_pular(item_id):
+    import whatsapp_dados as wd
+
+    wd.pular_produto_shopee(item_id)
+    flash("Produto pulado: ele não será enviado nos próximos 30 dias.")
+    return redirect(url_for("whatsapp") + "#previa")
+
+
+@app.route("/whatsapp/ligar", methods=["POST"])
+def whatsapp_ligar():
+    import whatsapp_dados as wd
+
+    ativo = request.form.get("ativo") == "1"
+    wd.salvar_config({"ativo": ativo})
+    flash("✅ Robô ligado." if ativo else "⏸️ Robô pausado: nada será enviado até você ligar de novo.")
+    return redirect(url_for("whatsapp"))
+
+
+@app.route("/whatsapp/enviar-agora", methods=["POST"])
+def whatsapp_enviar_agora():
+    import threading
+
+    import robo_whatsapp
+
+    faltando = robo_whatsapp.whatsapp_configurado()
+    if faltando:
+        flash("O WhatsApp ainda não está conectado (falta: " + ", ".join(faltando) + ").")
+        return redirect(url_for("whatsapp"))
+
+    def _rodar():
+        try:
+            robo_whatsapp.enviar_lote("enviar agora (site)")
+        except Exception as erro:  # noqa: BLE001
+            import whatsapp_dados as wd
+
+            wd.registrar("erro", "Falha ao enviar o lote", ok=False, erro=str(erro),
+                         origem="enviar agora (site)")
+
+    threading.Thread(target=_rodar, daemon=True).start()
+    flash("🚀 Enviando o lote agora. Tem uma pausa entre as mensagens, então leva "
+          "alguns minutos. Atualize a página para ver no histórico.")
+    return redirect(url_for("whatsapp"))
+
+
+@app.route("/whatsapp/fila/adicionar", methods=["POST"])
+def whatsapp_fila_adicionar():
+    import whatsapp_dados as wd
+
+    link = request.form.get("link", "").strip()
+    if not link.startswith("http"):
+        flash("Cole o link completo do produto (começando com https://).")
+        return redirect(url_for("whatsapp") + "#fila")
+
+    loja = request.form.get("loja") or "auto"
+    if loja == "auto":
+        loja = _loja_do_link(link)
+    nome = request.form.get("nome", "").strip()
+    preco = request.form.get("preco", "").strip()
+    imagem = request.form.get("imagem", "").strip()
+
+    if not nome or not imagem or not preco:
+        info = produto_manual.buscar_metadados_link(link)
+        nome = nome or info.get("nome", "")
+        imagem = imagem or info.get("imagem", "")
+        preco = preco or info.get("preco_texto", "")
+
+    if not nome:
+        flash("Não consegui pegar o nome do produto sozinho (a loja bloqueou). "
+              "Cole o link de novo e preencha o nome (e o preço, se quiser).")
+        return redirect(url_for("whatsapp") + "#fila")
+
+    if loja == "Amazon":
+        link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
+
+    wd.adicionar_na_fila(loja, link, nome, preco, imagem,
+                         request.form.get("observacao", ""))
+    flash(f"✅ Adicionado na fila: {nome[:60]}")
+    return redirect(url_for("whatsapp") + "#fila")
+
+
+@app.route("/whatsapp/fila/remover/<item_id>", methods=["POST"])
+def whatsapp_fila_remover(item_id):
+    import whatsapp_dados as wd
+
+    wd.remover_da_fila(item_id)
+    return redirect(url_for("whatsapp") + "#fila")
+
+
+@app.route("/whatsapp/fila/mover/<item_id>/<direcao>", methods=["POST"])
+def whatsapp_fila_mover(item_id, direcao):
+    import whatsapp_dados as wd
+
+    wd.mover_na_fila(item_id, -1 if direcao == "cima" else 1)
+    return redirect(url_for("whatsapp") + "#fila")
+
+
+@app.route("/whatsapp/cupons/adicionar", methods=["POST"])
+def whatsapp_cupons_adicionar():
+    import whatsapp_dados as wd
+
+    codigo = request.form.get("codigo", "").strip()
+    descricao = request.form.get("descricao", "").strip()
+    link = request.form.get("link", "").strip()
+    if not (codigo or link):
+        flash("Preencha pelo menos o código do cupom ou o link.")
+        return redirect(url_for("whatsapp") + "#cupons")
+    loja = request.form.get("loja") or "Outra"
+    if loja == "Amazon" and link:
+        link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
+    wd.adicionar_cupom(loja, codigo, descricao, link, request.form.get("validade", ""))
+    flash("✅ Cupom cadastrado. Ele sai no próximo lote (no máximo 1x por dia, até vencer).")
+    return redirect(url_for("whatsapp") + "#cupons")
+
+
+@app.route("/whatsapp/cupons/remover/<cupom_id>", methods=["POST"])
+def whatsapp_cupons_remover(cupom_id):
+    import whatsapp_dados as wd
+
+    wd.remover_cupom(cupom_id)
+    return redirect(url_for("whatsapp") + "#cupons")
+
+
+def _inteiro(valor, padrao, minimo, maximo):
+    try:
+        return max(minimo, min(maximo, int(valor)))
+    except (TypeError, ValueError):
+        return padrao
+
+
+@app.route("/whatsapp/ajustes", methods=["POST"])
+def whatsapp_ajustes():
+    import whatsapp_dados as wd
+
+    horarios = sorted({_inteiro(h, -1, 0, 23) for h in request.form.getlist("horarios")} - {-1})
+    por_lote = _inteiro(request.form.get("por_lote"), 3, 1, 10)
+
+    def _linhas(campo):
+        return [l.strip() for l in request.form.get(campo, "").splitlines() if l.strip()]
+
+    categorias = _linhas("categorias")
+    if request.form.get("incluir_geral"):
+        categorias = [""] + [c for c in categorias if c]
+
+    wd.salvar_config({
+        "horarios": horarios,
+        "por_lote": por_lote,
+        "fila_por_lote": _inteiro(request.form.get("fila_por_lote"), 1, 0, por_lote),
+        "cupons_por_lote": _inteiro(request.form.get("cupons_por_lote"), 1, 0, 3),
+        "amazon_tag": request.form.get("amazon_tag", "").strip(),
+        "palavras_bloqueadas": _linhas("palavras_bloqueadas"),
+        "categorias": categorias or wd.CATEGORIAS_PADRAO,
+    })
+    if not horarios:
+        flash("⚠️ Ajustes salvos, mas nenhum horário marcado: o robô não vai enviar sozinho.")
+    else:
+        flash("✅ Ajustes salvos.")
+    return redirect(url_for("whatsapp") + "#ajustes")
+
+
 if __name__ == "__main__":
     # threaded=True: a geracao de video (dezenas de segundos) nao trava
     # o resto do site enquanto roda.
