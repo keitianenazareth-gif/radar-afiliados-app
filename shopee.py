@@ -102,7 +102,7 @@ def _configuracao_opcao(opcao, termo=""):
     raise ValueError("Opcao invalida.")
 
 
-def _consultar_api(keyword, sort_type, is_ams, campos_extras=""):
+def _consultar_api(keyword, sort_type, is_ams, campos_extras="", page=1):
     # Escapa aspas no termo para nao quebrar a query GraphQL.
     keyword_seguro = keyword.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -110,7 +110,7 @@ def _consultar_api(keyword, sort_type, is_ams, campos_extras=""):
 {{
   productOfferV2(
     keyword: "{keyword_seguro}"
-    page: 1
+    page: {int(page)}
     limit: 20
     sortType: {sort_type}
     isAMSOffer: {str(is_ams).lower()}

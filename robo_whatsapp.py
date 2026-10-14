@@ -7,7 +7,8 @@ sozinho, sem ninguem clicar em nada:
     1. Busca ofertas da Shopee em 3 listas: mais vendidos, maior
        comissao e maiores descontos.
     2. Escolhe as melhores, misturando as 3 listas, sem repetir produto
-       ja enviado recentemente (historico no Upstash).
+       enviado nos ultimos 30 dias (historico no Upstash). A cada
+       horario busca em categorias e paginas diferentes, pra variar.
     3. Gera o link de afiliado curto com a marcacao "whatsapp" (subId),
        pra saber no relatorio da Shopee o que vendeu pelo grupo.
     4. Envia cada oferta no grupo (foto + texto + link) pela Evolution
@@ -48,7 +49,19 @@ import requests
 from shopee import _consultar_api, gerar_link_curto, numero
 
 CHAVE_HISTORICO = "robo_whatsapp:historico"
-MAX_HISTORICO = 600
+DIAS_SEM_REPETIR = 30  # um produto so pode voltar depois de 30 dias
+
+# Categorias que o robo alterna a cada horario (busca por palavra-chave).
+# "" = vitrine geral da Shopee. Pode editar a vontade.
+CATEGORIAS = [
+    "", "casa", "cozinha", "beleza", "maquiagem", "skincare", "moda feminina",
+    "roupa fitness", "academia", "pet", "infantil", "brinquedo", "eletronicos",
+    "celular acessorios", "organizacao", "decoracao", "cama mesa banho",
+    "limpeza", "ferramentas", "papelaria", "moda masculina", "calcados",
+    "bolsas", "relogio", "saude bem estar", "viagem", "carro acessorios",
+]
+CATEGORIAS_POR_LOTE = 3
+PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 
 # sortType da API de afiliados: 2 = mais vendidos, 4 = menor preco,
 # 5 = maior comissao. Nao existe ordenacao por desconto: a lista de
@@ -81,30 +94,55 @@ def _upstash_cmd(cmd: list):
     return resp.json().get("result")
 
 
-def _carregar_historico() -> list:
+def _carregar_historico() -> dict:
+    """{itemId: data do envio (timestamp)}. Aceita o formato antigo (lista)."""
     bruto = _upstash_cmd(["GET", CHAVE_HISTORICO])
     if not bruto:
-        return []
+        return {}
     try:
-        return json.loads(bruto)
+        dados = json.loads(bruto)
     except json.JSONDecodeError:
-        return []
+        return {}
+    if isinstance(dados, list):
+        agora = time.time()
+        return {str(i): agora for i in dados}
+    return {str(k): float(v) for k, v in dados.items()}
 
 
-def _salvar_historico(ids: list) -> None:
-    _upstash_cmd(["SET", CHAVE_HISTORICO, json.dumps(ids[-MAX_HISTORICO:])])
+def _salvar_historico(hist: dict) -> None:
+    limite = time.time() - DIAS_SEM_REPETIR * 86400
+    recentes = {k: v for k, v in hist.items() if v >= limite}
+    _upstash_cmd(["SET", CHAVE_HISTORICO, json.dumps(recentes)])
 
 
 # ---------------------------------------------------------------- ofertas
 
-def _buscar_lista(sort_type: int) -> list:
+def _buscar_lista(sort_type: int, termo: str = "", pagina: int = 1) -> list:
     try:
-        return _consultar_api("", sort_type, False, CAMPOS_EXTRAS)
+        return _consultar_api(termo, sort_type, False, CAMPOS_EXTRAS, pagina)
     except RuntimeError as erro:
         # Se a Shopee nao aceitar algum campo extra, busca sem eles.
         if any(c in str(erro) for c in CAMPOS_EXTRAS.split()):
-            return _consultar_api("", sort_type, False)
+            return _consultar_api(termo, sort_type, False, "", pagina)
         raise
+
+
+def _categorias_da_vez() -> list:
+    """Cada horario pega um grupo diferente de categorias, em rodizio."""
+    rodada = int(time.time() // 3600)  # muda a cada hora
+    inicio = (rodada * CATEGORIAS_POR_LOTE) % len(CATEGORIAS)
+    return [CATEGORIAS[(inicio + i) % len(CATEGORIAS)] for i in range(CATEGORIAS_POR_LOTE)]
+
+
+def _juntar(listas: list) -> list:
+    vistos, saida = set(), []
+    for lista in listas:
+        for p in lista:
+            k = str(p.get("itemId"))
+            if k not in vistos:
+                vistos.add(k)
+                saida.append(p)
+    return saida
 
 
 def _passa_no_filtro(p: dict) -> bool:
@@ -118,11 +156,22 @@ def _passa_no_filtro(p: dict) -> bool:
     return True
 
 
-def escolher_ofertas(quantidade: int, historico: list) -> list:
-    """Mistura as 3 listas (uma de cada vez) ate completar o lote."""
-    vendidos = [p for p in _buscar_lista(2) if _passa_no_filtro(p)]
-    comissao = [p for p in _buscar_lista(5) if _passa_no_filtro(p)]
-    baratos = [p for p in _buscar_lista(4) if _passa_no_filtro(p)]
+def escolher_ofertas(quantidade: int, historico) -> list:
+    """Busca em categorias e paginas variadas e mistura as 3 listas
+    (uma de cada vez) ate completar o lote."""
+    categorias = _categorias_da_vez()
+    print("Categorias desta rodada: " + ", ".join(c or "vitrine geral" for c in categorias))
+    buscas = {2: [], 5: [], 4: []}
+    for termo in categorias:
+        for sort_type in buscas:
+            try:
+                buscas[sort_type].append(
+                    _buscar_lista(sort_type, termo, random.choice(PAGINAS)))
+            except RuntimeError as erro:
+                print(f"  Aviso: busca '{termo or 'geral'}' falhou ({erro}).")
+    vendidos = [p for p in _juntar(buscas[2]) if _passa_no_filtro(p)]
+    comissao = [p for p in _juntar(buscas[5]) if _passa_no_filtro(p)]
+    baratos = [p for p in _juntar(buscas[4]) if _passa_no_filtro(p)]
 
     todos = {}
     for p in vendidos + comissao + baratos:
@@ -139,7 +188,9 @@ def escolher_ofertas(quantidade: int, historico: list) -> list:
         ("maiores descontos", descontos),
     ]
 
-    escolhidos, ids_usados = [], set(str(i) for i in historico)
+    limite = time.time() - DIAS_SEM_REPETIR * 86400
+    ids_usados = {str(k) for k, v in dict(historico).items() if v >= limite}
+    escolhidos = []
     while len(escolhidos) < quantidade and any(f for _, f in filas):
         for nome, fila in filas:
             while fila:
@@ -273,7 +324,7 @@ def rodar(teste: bool = False) -> None:
         historico = _carregar_historico()
     except (RuntimeError, requests.RequestException) as erro:
         print(f"Aviso: sem historico ({erro}). Pode repetir produto.")
-        historico = []
+        historico = {}
 
     ofertas = escolher_ofertas(quantidade, historico)
     if not ofertas:
@@ -304,7 +355,7 @@ def rodar(teste: bool = False) -> None:
             print(f"  ERRO ao enviar: {erro}")
             continue
         enviados += 1
-        historico.append(str(p.get("itemId")))
+        historico[str(p.get("itemId"))] = time.time()
         print("  Enviada!")
 
     if teste:
