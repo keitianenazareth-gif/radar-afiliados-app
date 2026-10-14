@@ -188,11 +188,12 @@ def montar_mensagem(p: dict, link: str) -> str:
     desconto = numero(p.get("priceDiscountRate"))
 
     linhas = [f"🔥 *{nome}*", ""]
-    if desconto >= 5 and preco > 0:
-        de = preco / (1 - desconto / 100)
-        linhas.append(f"De ~{_moeda(de)}~ por *{_moeda(preco)}* ({desconto:g}% OFF)")
+    # A Shopee informa o MAIOR desconto entre as variacoes e o MENOR preco,
+    # que podem ser de variacoes diferentes - por isso nao calculamos "De R$".
+    if preco > 0 and desconto >= 5:
+        linhas.append(f"A partir de *{_moeda(preco)}* · até {desconto:g}% OFF")
     elif preco > 0:
-        linhas.append(f"Por *{_moeda(preco)}*")
+        linhas.append(f"A partir de *{_moeda(preco)}*")
 
     extras = []
     nota = numero(p.get("ratingStar"))
