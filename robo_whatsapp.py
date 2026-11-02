@@ -11,7 +11,8 @@ Cada lote tem:
     - o resto completado com ofertas da Shopee escolhidas sozinhas:
       mais vendidos, maior comissao e maiores descontos, em categorias e
       paginas que mudam a cada horario, sem repetir produto por 30 dias
-      e pulando produtos com palavras proibidas.
+      (nem o mesmo produto vendido por outra loja: compara codigo, foto e
+      nome) e pulando produtos com palavras proibidas.
 
 Os links da Shopee saem como link curto de afiliada com a marcacao
 (subId) "whatsapp". Envio pela Evolution API, com pausa entre mensagens.
@@ -28,7 +29,8 @@ Uso (no notebook, pra testar):
     python robo_whatsapp.py                  -> envia se for um dos horarios
 
 No GitHub Actions roda de hora em hora (.github/workflows/robo-whatsapp.yml)
-e so envia nos horarios escolhidos na pagina.
+e so envia nos horarios escolhidos na pagina. Como o GitHub as vezes atrasa,
+se o lote de um horario nao saiu ele ainda e' enviado ate 3h depois.
 
 Variaveis de ambiente / Secrets do GitHub / Environment do Render:
     SHOPEE_APP_ID, SHOPEE_SECRET, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
@@ -44,6 +46,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 import sys
 import time
 
@@ -58,6 +61,8 @@ VARIAVEIS_WHATSAPP = ("WHATSAPP_API_URL", "WHATSAPP_API_KEY", "WHATSAPP_INSTANCI
 VENDAS_MINIMAS = 100
 NOTA_MINIMA = 4.5      # estrelas (so vale quando a Shopee informa)
 DESCONTO_MINIMO = 20   # % pra entrar na lista de "maiores descontos"
+# Se o GitHub atrasar, o lote ainda sai ate esse tanto de horas depois do horario.
+ATRASO_MAXIMO_HORAS = 3
 CATEGORIAS_POR_LOTE = 3
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 CAMPOS_EXTRAS = "shopId productLink ratingStar"
@@ -144,6 +149,56 @@ def _passa_no_filtro(p: dict, palavras_bloqueadas: list) -> bool:
     return True
 
 
+# ---------------------------------------------------------------- produto parecido
+# O mesmo produto aparece em varias lojas da Shopee, cada uma com um codigo
+# diferente. Pra nao mandar "a mesma garrafinha" duas vezes, comparamos
+# tambem a FOTO e o NOME (palavras principais).
+
+_PALAVRAS_IGNORADAS = {
+    "para", "com", "sem", "kit", "pcs", "pecas", "peca", "unidade", "unidades",
+    "original", "novo", "nova", "promocao", "oferta", "envio", "imediato",
+    "pronta", "entrega", "frete", "gratis", "atacado", "cor", "cores", "tam",
+    "tamanho", "unissex", "feminino", "feminina", "masculino", "masculina",
+    "das", "dos", "uma", "por", "que", "the", "and", "for",
+}
+SEMELHANCA_MINIMA = 0.6
+
+
+def chave_foto(url: str) -> str:
+    """Identificador da foto (o fim do endereco, sem tamanho/extensao)."""
+    fim = str(url or "").rstrip("/").split("/")[-1]
+    fim = fim.split("?")[0].split("_tn")[0].split(".")[0]
+    return f"img:{fim}" if len(fim) >= 8 else ""
+
+
+def palavras_do_nome(nome: str) -> frozenset:
+    texto = re.sub(r"[^a-z0-9 ]", " ", dados.normalizar(nome))
+    palavras = [w for w in texto.split()
+                if len(w) >= 3 and not w.isdigit() and w not in _PALAVRAS_IGNORADAS]
+    return frozenset(palavras[:8])
+
+
+def chave_nome(nome: str) -> str:
+    palavras = palavras_do_nome(nome)
+    return "nome:" + " ".join(sorted(palavras)) if palavras else ""
+
+
+def nome_parecido(palavras: frozenset, recentes: list) -> bool:
+    if len(palavras) < 2:
+        return False
+    for outras in recentes:
+        if not outras:
+            continue
+        iguais = len(palavras & outras)
+        if iguais / len(palavras | outras) >= SEMELHANCA_MINIMA:
+            return True
+    return False
+
+
+def nomes_recentes(usados: set) -> list:
+    return [frozenset(k[5:].split()) for k in usados if k.startswith("nome:")]
+
+
 def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> list:
     """Busca em categorias e paginas variadas e mistura as 3 listas
     (uma de cada vez) ate completar a quantidade."""
@@ -178,6 +233,8 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
     ]
 
     escolhidos, usados = [], set(ja_usados)
+    nomes_usados = nomes_recentes(usados)
+    pulados = 0
     while len(escolhidos) < quantidade and any(f for _, f in filas):
         for nome, fila in filas:
             while fila:
@@ -185,12 +242,23 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
                 item_id = str(p.get("itemId"))
                 if item_id in usados:
                     continue
+                foto = chave_foto(p.get("imageUrl"))
+                palavras = palavras_do_nome(p.get("productName", ""))
+                if (foto and foto in usados) or nome_parecido(palavras, nomes_usados):
+                    usados.add(item_id)
+                    pulados += 1
+                    continue
                 usados.add(item_id)
+                if foto:
+                    usados.add(foto)
+                nomes_usados.append(palavras)
                 p["_lista"] = nome
                 escolhidos.append(p)
                 break
             if len(escolhidos) >= quantidade:
                 break
+    if pulados:
+        print(f"  {pulados} produto(s) parecido(s) com outros ja enviados foram pulados.")
     return escolhidos
 
 
@@ -317,6 +385,7 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
             "tipo": "fila", "titulo": f"{item.get('loja')}: {item.get('nome')}",
             "texto": mensagem_fila(item), "imagem": item.get("imagem", ""),
             "link": item.get("link", ""), "ref": item.get("id"),
+            "nome": str(item.get("nome") or ""),
         })
 
     # 3) Completa com Shopee.
@@ -330,6 +399,7 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
                 "titulo": f"Shopee ({p['_lista']}): {p.get('productName')}",
                 "texto": mensagem_shopee(p, link), "imagem": str(p.get("imageUrl") or ""),
                 "link": link, "ref": str(p.get("itemId")),
+                "nome": str(p.get("productName") or ""),
             })
     return lote
 
@@ -400,9 +470,17 @@ def _depois_de_enviar(msg: dict) -> None:
         dados.remover_da_fila(msg["ref"])
     elif msg["tipo"] == "cupom":
         dados.marcar_cupom_enviado(msg["ref"])
-    elif msg["tipo"] == "shopee":
+    if msg["tipo"] in ("shopee", "fila"):
+        # Guarda o codigo, a foto e o nome, pra nao repetir o mesmo
+        # produto nem quando ele vier de outra loja.
         historico = dados.ler_historico()
-        historico[msg["ref"]] = time.time()
+        agora = time.time()
+        chaves = [chave_foto(msg.get("imagem")), chave_nome(msg.get("nome", ""))]
+        if msg["tipo"] == "shopee":
+            chaves.append(str(msg["ref"]))
+        for chave in chaves:
+            if chave:
+                historico[chave] = agora
         dados.salvar_historico(historico)
 
 
@@ -464,14 +542,22 @@ def rodar_agendado() -> None:
     if not config.get("ativo"):
         print("Robo pausado na pagina /whatsapp. Nada enviado.")
         return
-    horarios = [int(h) for h in config.get("horarios") or []]
-    if agora.hour not in horarios:
+    horarios = sorted(int(h) for h in config.get("horarios") or [])
+    # O GitHub as vezes atrasa horas pra rodar. Por isso olhamos o ultimo
+    # horario que ja passou hoje: se o lote dele ainda nao saiu (e o atraso
+    # e' de no maximo ATRASO_MAXIMO_HORAS), manda agora. Se varios horarios
+    # foram perdidos, manda so 1 lote, pra nao encher o grupo de uma vez.
+    passados = [h for h in horarios if h <= agora.hour]
+    if not passados or agora.hour - passados[-1] > ATRASO_MAXIMO_HORAS:
         print(f"Agora sao {agora:%H:%M} (Brasilia). Horarios de envio: {horarios}. Nada a fazer.")
         return
-    marca = agora.strftime("%Y-%m-%d %H")
+    hora_do_lote = passados[-1]
+    marca = agora.strftime("%Y-%m-%d ") + f"{hora_do_lote:02d}"
     if dados.ler_ultimo_lote() == marca:
-        print("O lote deste horario ja foi enviado.")
+        print(f"O lote das {hora_do_lote}h ja foi enviado.")
         return
+    if hora_do_lote != agora.hour:
+        print(f"O lote das {hora_do_lote}h nao tinha saido (o GitHub atrasou). Enviando agora.")
     faltando = whatsapp_configurado()
     if faltando:
         print("WhatsApp ainda nao configurado (falta: " + ", ".join(faltando) + "). Nada enviado.")
