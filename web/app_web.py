@@ -565,12 +565,14 @@ def _loja_do_link(link):
     return next((loja for trecho, loja in _DOMINIOS_LOJA if trecho in link), "Outra")
 
 
-def _pagina_whatsapp(lote=None, erro_lote=None):
+def _pagina_whatsapp(lote=None, erro_lote=None, grupos=None):
     import robo_whatsapp
     import whatsapp_dados as wd
 
     contexto = {
         "faltando": robo_whatsapp.whatsapp_configurado(),
+        "faltando_conexao": robo_whatsapp.conexao_configurada(),
+        "grupos": grupos,
         "lojas": wd.LOJAS,
         "lote": lote,
         "erro_lote": erro_lote,
@@ -625,6 +627,59 @@ def whatsapp_ligar():
     wd.salvar_config({"ativo": ativo})
     flash("✅ Robô ligado." if ativo else "⏸️ Robô pausado: nada será enviado até você ligar de novo.")
     return redirect(url_for("whatsapp"))
+
+
+@app.route("/whatsapp/grupos", methods=["POST"])
+def whatsapp_grupos():
+    """Busca os grupos do chip na Evolution API pra Keiti escolher."""
+    import robo_whatsapp
+
+    faltando = robo_whatsapp.conexao_configurada()
+    if faltando:
+        flash("Falta configurar no Render: " + ", ".join(faltando) + ".")
+        return redirect(url_for("whatsapp") + "#grupo")
+    try:
+        grupos = robo_whatsapp.listar_grupos()
+    except Exception as erro:  # noqa: BLE001
+        flash(f"Não consegui buscar os grupos: {erro}")
+        return redirect(url_for("whatsapp") + "#grupo")
+    if not grupos:
+        flash("Nenhum grupo encontrado no chip. Confira se o chip está no grupo "
+              "e se a instância está conectada.")
+    return _pagina_whatsapp(grupos=grupos)
+
+
+@app.route("/whatsapp/grupo/escolher", methods=["POST"])
+def whatsapp_grupo_escolher():
+    import whatsapp_dados as wd
+
+    grupo_id = request.form.get("grupo_id", "").strip()
+    nome = request.form.get("grupo_nome", "").strip()
+    if not grupo_id.endswith("@g.us"):
+        flash("Grupo inválido.")
+        return redirect(url_for("whatsapp") + "#grupo")
+    try:
+        wd.salvar_config({"grupo_id": grupo_id, "grupo_nome": nome})
+        flash(f"✅ Grupo escolhido: {nome or grupo_id}. Agora toque em ENVIAR TESTE.")
+    except RuntimeError as erro:
+        flash(f"Não consegui salvar o grupo: {erro}")
+    return redirect(url_for("whatsapp") + "#grupo")
+
+
+@app.route("/whatsapp/grupo/teste", methods=["POST"])
+def whatsapp_grupo_teste():
+    import robo_whatsapp
+
+    faltando = robo_whatsapp.whatsapp_configurado()
+    if faltando:
+        flash("Ainda falta: " + ", ".join(faltando) + ".")
+        return redirect(url_for("whatsapp") + "#grupo")
+    try:
+        robo_whatsapp.enviar_teste()
+        flash("✅ Mensagem de teste enviada! Confira no grupo.")
+    except Exception as erro:  # noqa: BLE001
+        flash(f"O teste falhou: {erro}")
+    return redirect(url_for("whatsapp") + "#grupo")
 
 
 @app.route("/whatsapp/enviar-agora", methods=["POST"])

@@ -63,6 +63,46 @@
         </div>
     </div>
 
+    {# ------------------------------------------------ grupo #}
+    <div class="card" id="grupo">
+        <strong>👥 Grupo de envio</strong>
+        {% if faltando_conexao %}
+        <p class="aviso aviso-amarelo">Falta colocar no Environment do Render:
+            {{ faltando_conexao | join(', ') }}.</p>
+        {% else %}
+        <p class="linhas-info" style="margin:8px 0">
+            {% if config.grupo_id %}
+            Enviando para: <strong>{{ config.grupo_nome or config.grupo_id }}</strong>
+            {% else %}
+            Nenhum grupo escolhido ainda. Toque em BUSCAR GRUPOS.
+            {% endif %}
+        </p>
+        <div class="linha">
+            <form action="{{ url_for('whatsapp_grupos') }}" method="post" class="inline">
+                <button type="submit" class="botao botao-destaque">🔎 BUSCAR GRUPOS</button>
+            </form>
+            {% if config.grupo_id %}
+            <form action="{{ url_for('whatsapp_grupo_teste') }}" method="post" class="inline"
+                  onsubmit="return confirm('Mandar uma mensagem de teste no grupo?');">
+                <button type="submit" class="botao botao-primario">✉️ ENVIAR TESTE</button>
+            </form>
+            {% endif %}
+        </div>
+        {% if grupos %}
+        <p class="linhas-info" style="margin-top:12px">Toque no grupo de promoções:</p>
+        {% for g in grupos %}
+        <form action="{{ url_for('whatsapp_grupo_escolher') }}" method="post" style="margin:6px 0">
+            <input type="hidden" name="grupo_id" value="{{ g.id }}">
+            <input type="hidden" name="grupo_nome" value="{{ g.nome }}">
+            <button type="submit" class="botao {{ 'botao-verde' if g.id == config.grupo_id else 'botao-secundario' }}" style="width:100%">
+                {{ '✓ ' if g.id == config.grupo_id }}{{ g.nome or g.id }}
+            </button>
+        </form>
+        {% endfor %}
+        {% endif %}
+        {% endif %}
+    </div>
+
     {# ------------------------------------------------ previa #}
     {% if lote is not none %}
     <div class="card" id="previa">

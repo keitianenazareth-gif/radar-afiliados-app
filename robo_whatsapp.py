@@ -35,7 +35,8 @@ Variaveis de ambiente / Secrets do GitHub / Environment do Render:
     WHATSAPP_API_URL     endereco da Evolution API
     WHATSAPP_API_KEY     chave (apikey) da Evolution API
     WHATSAPP_INSTANCIA   nome da instancia conectada ao chip
-    WHATSAPP_GRUPO_ID    ID do grupo (termina em @g.us) - ver --listar-grupos
+    WHATSAPP_GRUPO_ID    (opcional) ID do grupo - o normal e' escolher o grupo
+                         na pagina /whatsapp, que salva no Upstash
 Opcionais: WHATSAPP_PAUSA_MIN / WHATSAPP_PAUSA_MAX (segundos, padrao 40 / 90)
 """
 
@@ -51,8 +52,7 @@ import requests
 import whatsapp_dados as dados
 from shopee import _consultar_api, gerar_link_curto, numero
 
-VARIAVEIS_WHATSAPP = ("WHATSAPP_API_URL", "WHATSAPP_API_KEY",
-                      "WHATSAPP_INSTANCIA", "WHATSAPP_GRUPO_ID")
+VARIAVEIS_WHATSAPP = ("WHATSAPP_API_URL", "WHATSAPP_API_KEY", "WHATSAPP_INSTANCIA")
 
 # Filtro de qualidade minima pra nao mandar produto ruim no grupo.
 VENDAS_MINIMAS = 100
@@ -74,9 +74,27 @@ def _aviso_actions(nivel: str, titulo: str, texto: str) -> None:
         print(f"::{nivel} title={titulo}::{msg}")
 
 
-def whatsapp_configurado() -> list:
-    """Lista as variaveis do WhatsApp que ainda faltam."""
+def conexao_configurada() -> list:
+    """Variaveis de conexao com a Evolution API que ainda faltam."""
     return [n for n in VARIAVEIS_WHATSAPP if not _env(n)]
+
+
+def grupo_destino() -> str:
+    """Grupo escolhido na pagina /whatsapp; o Secret WHATSAPP_GRUPO_ID so
+    vale se nenhum grupo tiver sido escolhido la."""
+    try:
+        escolhido = (dados.ler_config().get("grupo_id") or "").strip()
+    except RuntimeError:
+        escolhido = ""
+    return escolhido or _env("WHATSAPP_GRUPO_ID")
+
+
+def whatsapp_configurado() -> list:
+    """Lista o que ainda falta para o robo conseguir enviar."""
+    faltando = conexao_configurada()
+    if not grupo_destino():
+        faltando.append("grupo (escolha na pagina /whatsapp)")
+    return faltando
 
 
 # ================================================================ Shopee
@@ -364,7 +382,16 @@ def enviar_mensagem(grupo_id: str, msg: dict) -> None:
 def listar_grupos() -> list:
     instancia = _env("WHATSAPP_INSTANCIA")
     grupos = _evolution("GET", f"/group/fetchAllGroups/{instancia}?getParticipants=false")
-    return [{"nome": g.get("subject"), "id": g.get("id")} for g in (grupos or [])]
+    return [{"nome": g.get("subject"), "id": g.get("id")} for g in (grupos or [])
+            if isinstance(g, dict) and str(g.get("id", "")).endswith("@g.us")]
+
+
+def enviar_teste(texto: str = "") -> None:
+    """Manda uma mensagem simples no grupo escolhido, so pra conferir."""
+    grupo = grupo_destino()
+    if not grupo:
+        raise RuntimeError("Nenhum grupo escolhido ainda.")
+    _enviar_texto(grupo, texto or "✅ Teste do robô do Radar Afiliados: conexão funcionando!")
 
 
 def _depois_de_enviar(msg: dict) -> None:
@@ -398,7 +425,7 @@ def enviar_lote(origem: str = "automatico") -> int:
 
         pausa_min = int(_env("WHATSAPP_PAUSA_MIN", "40") or 40)
         pausa_max = max(pausa_min, int(_env("WHATSAPP_PAUSA_MAX", "90") or 90))
-        grupo = _env("WHATSAPP_GRUPO_ID")
+        grupo = grupo_destino()
         enviados = 0
         for n, msg in enumerate(lote, start=1):
             print(f"\n--- {n}/{len(lote)} {msg['titulo']} ---\n{msg['texto']}")
@@ -475,7 +502,7 @@ if __name__ == "__main__":
     try:
         if "--listar-grupos" in args:
             grupos = listar_grupos()
-            print("Grupos deste numero (copie o ID para o Secret WHATSAPP_GRUPO_ID):")
+            print("Grupos deste numero (ou escolha o grupo na pagina /whatsapp):")
             for g in grupos:
                 print(f"  {g['nome']}  ->  {g['id']}")
                 _aviso_actions("notice", g["nome"] or "grupo", g["id"] or "")

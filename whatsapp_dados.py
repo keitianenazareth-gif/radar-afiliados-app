@@ -76,6 +76,8 @@ CONFIG_PADRAO = {
     "amazon_tag": "",
     "palavras_bloqueadas": PALAVRAS_BLOQUEADAS_PADRAO,
     "categorias": CATEGORIAS_PADRAO,
+    "grupo_id": "",          # grupo escolhido na pagina /whatsapp (termina em @g.us)
+    "grupo_nome": "",
 }
 
 try:
