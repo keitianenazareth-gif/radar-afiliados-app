@@ -38,6 +38,9 @@ marque aqui com [x] e faça commit.
 - [ ] 8. Escutar os grupos de promoção em que o chip entrou: links de produto (Shopee vira
       link da Keiti pela API; ML/Amazon/Shein vão para a fila) e cupons (Gemini identifica).
 - [ ] 9. Cupons automáticos da Shopee (campanhas da API de afiliados).
+      - [x] Mercado Livre (03/11): a tarefa das 8h lê a página Cupons (`tarefa_ml/extrair_cupons.js`)
+        e cadastra 1 ou 2 cupons gerais, com link de afiliada de um produto onde o cupom vale.
+        O ML não gera link de afiliada da página de cupons nem tem código: a pessoa ativa no app.
 - [ ] 10. Robô do Instagram para ganhar seguidores (começar consertando `robo-automatico.yml`,
        que falha desde 14/10): postar nos melhores horários, relatório semanal, temas do
        momento, hashtags, responder comentários/DMs, funil "comenta QUERO" (DM só para quem
