@@ -30,6 +30,10 @@ marque aqui com [x] e faça commit.
 - [ ] 5. Verificar o dispositivo no app do Claude (para usar o navegador do app).
 - [ ] 6. Tarefa agendada pelo navegador para Mercado Livre, Amazon (SiteStripe) e Shein:
       escolher ofertas, gerar link de afiliada e colocar na fila. Amazon sem preço na mensagem.
+      - [x] Mercado Livre (03/11): tarefa "Ofertas do Mercado Livre para o grupo" no app do
+        Claude, 8h e 13h. Passo a passo em `tarefa_ml/INSTRUCOES.md`; `fila_ml.py` põe na fila.
+        Precisa do notebook ligado, app do Claude aberto e Chrome logado no ML.
+      - [ ] Amazon e Shein.
 - [ ] 7. Fila aceitar só o link do ML (o robô busca nome, preço e foto sozinho).
 - [ ] 8. Escutar os grupos de promoção em que o chip entrou: links de produto (Shopee vira
       link da Keiti pela API; ML/Amazon/Shein vão para a fila) e cupons (Gemini identifica).
