@@ -24,11 +24,11 @@ marque aqui com [x] e faça commit.
   MARCA_DAGUA_TEXTO troca o texto. Opcao vista: so o @ sem a faixa escura.
 
 ## Fazer no notebook
-- [ ] 1. Secrets do GitHub (Settings > Secrets and variables > Actions): WHATSAPP_API_URL
-      (domínio do Railway), WHATSAPP_API_KEY (AUTHENTICATION_API_KEY do Railway; nunca
-      colar no chat) e WHATSAPP_INSTANCIA = promocoes. Sem isso o robô agendado não envia
-      (logs de 02/11: faltam essas 3 chaves).
-- [ ] 2. Rodar o robô no Railway com agendamento pontual (o cron do GitHub atrasa de 3 a 7h).
+- [x] 1. Secrets do GitHub (03/11): WHATSAPP_API_URL, WHATSAPP_API_KEY e WHATSAPP_INSTANCIA
+      cadastrados. O teste listar_grupos deu `rate-overlimit` do WhatsApp; repetir só com folga.
+- [x] 2. Robô no Railway (03/11): serviço radar-afiliados-app no projeto sublime-spirit, de hora
+      em hora no minuto 2 (cron definido na tela, em Settings). O lote das 20h saiu às 20:06.
+      O agendamento do GitHub foi desligado; lá só roda manualmente. Conferir o custo real.
 - [x] 3. Mensagens mais chamativas (03/11, commit be0af4d). Ganchos e chamadas editáveis nos
       Ajustes; "PREÇO DE ERRO?" virou "BAIXOU DEMAIS!" a pedido da Keiti. O nome curto por IA
       está ligado, mas a chave do Gemini responde HTTP 402 (pede pagamento): enquanto isso vale

@@ -1,17 +1,12 @@
 name: Robo WhatsApp - Ofertas no grupo
 
-# Roda de hora em hora, mas SO envia nos horarios escolhidos na pagina
-# /whatsapp do Radar web (padrao 9h, 12h e 19h de Brasilia) e se o robo
-# estiver ligado la. Nas outras horas ele so confere e encerra em segundos.
-# Enquanto os Secrets WHATSAPP_* nao existirem, ele so avisa e nao envia.
-#
-# Manual: Actions -> Robo WhatsApp -> Run workflow, escolhendo o modo:
+# Os envios automaticos agora rodam no Railway (ver railway.toml), porque o
+# agendamento do GitHub atrasava de 3 a 7 horas. Aqui so roda manualmente:
+# Actions -> Robo WhatsApp -> Run workflow, escolhendo o modo:
 #   teste          -> so mostra o proximo lote como avisos, nao envia
 #   enviar_agora   -> manda um lote ja, fora do horario
 #   listar_grupos  -> mostra os grupos do chip e seus IDs
 on:
-  schedule:
-    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       modo:
