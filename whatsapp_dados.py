@@ -67,6 +67,25 @@ def tem_palavra_bloqueada(texto: str, palavras: list) -> str:
             return palavra
     return ""
 
+# Primeira linha das mensagens. O robo escolhe pelo produto quando o gancho
+# tem estas palavras: "BAIXOU" (desconto de 60%+), "MAIS VENDIDO" (10 mil+
+# vendas), "BARATO" (ate R$ 30); senao sorteia. Nao repete no mesmo lote.
+GANCHOS_PADRAO = [
+    "😱 BAIXOU DEMAIS!",
+    "⚡ CORRE QUE ACABA",
+    "🏆 O MAIS VENDIDO DA SEMANA",
+    "💸 ACHADINHO BARATO",
+    "🔥 OFERTA DO DIA",
+]
+
+# Frase logo antes do link (sorteada).
+CHAMADAS_PADRAO = [
+    "Garanta o seu 👇",
+    "Corre pra pegar 👇",
+    "Aproveita aqui 👇",
+    "Clica e confere 👇",
+]
+
 CONFIG_PADRAO = {
     "ativo": True,
     "horarios": [9, 12, 19],
@@ -76,7 +95,10 @@ CONFIG_PADRAO = {
     "amazon_tag": "",
     "palavras_bloqueadas": PALAVRAS_BLOQUEADAS_PADRAO,
     "categorias": CATEGORIAS_PADRAO,
-    "grupo_id": "",          # grupo escolhido na pagina /whatsapp (termina em @g.us)
+    "ganchos": GANCHOS_PADRAO,
+    "chamadas": CHAMADAS_PADRAO,
+    "nome_curto_ia": True,   # Gemini encurta o nome dos produtos
+    "grupo_id": "",         # grupo escolhido na pagina /whatsapp (termina em @g.us)
     "grupo_nome": "",
 }
 

@@ -266,6 +266,18 @@
                 <input type="text" name="amazon_tag" placeholder="ex: clubedoquero-20" value="{{ config.amazon_tag }}">
             </label>
 
+            <label class="rotulo">Ganchos do topo da mensagem (um por linha)
+                <textarea name="ganchos" style="min-height:110px">{{ config.ganchos|join('\n') }}</textarea>
+            </label>
+            <p class="linhas-info">O robô escolhe pelo produto quando o gancho tem "BAIXOU" (desconto
+                de 60% ou mais), "MAIS VENDIDO" (10 mil vendas ou mais) ou "BARATO" (até R$ 30);
+                nos outros casos sorteia. Não repete o mesmo gancho no mesmo lote.</p>
+            <label class="rotulo">Chamadas antes do link (uma por linha)
+                <textarea name="chamadas" style="min-height:90px">{{ config.chamadas|join('\n') }}</textarea>
+            </label>
+            <label class="linhas-info"><input type="checkbox" name="nome_curto_ia" value="1"
+                {{ 'checked' if config.nome_curto_ia }}> Encurtar o nome dos produtos com IA (Gemini)</label>
+
             <label class="rotulo">Palavras proibidas (uma por linha)
                 <textarea name="palavras_bloqueadas" style="min-height:120px">{{ config.palavras_bloqueadas|join('\n') }}</textarea>
             </label>

@@ -159,7 +159,8 @@ def gerar_campanha(
             timeout=30,
         )
     except requests.RequestException as erro:
-        raise RuntimeError(f"Erro de conexao com o Gemini: {erro}")
+        # So o tipo do erro: a mensagem completa traz a URL com a chave.
+        raise RuntimeError(f"Erro de conexao com o Gemini ({type(erro).__name__}).")
 
     if resposta.status_code == 429:
         raise RuntimeError(
@@ -316,7 +317,8 @@ def gerar_roteiro_video(
                 f"{URL_BASE}?key={GEMINI_API_KEY}", json=corpo, timeout=40
             )
         except requests.RequestException as erro:
-            raise RuntimeError(f"Erro de conexao com o Gemini: {erro}")
+            # So o tipo do erro: a mensagem completa traz a URL com a chave.
+            raise RuntimeError(f"Erro de conexao com o Gemini ({type(erro).__name__}).")
 
         if resposta.status_code == 429:
             raise RuntimeError(
@@ -367,3 +369,54 @@ def gerar_roteiro_video(
         "narracao": str(roteiro["narracao"]).strip(),
         "cenas": cenas,
     }
+
+
+def encurtar_nomes(nomes):
+    """Reescreve nomes de produto em ate ~8 palavras para as mensagens do
+    WhatsApp, sem inventar nada. Uma chamada so para a lista toda. Se o
+    Gemini falhar (sem chave, limite, resposta ruim), devolve os nomes
+    originais - quem chama nao precisa tratar erro."""
+    nomes = [str(n or "").strip() for n in nomes]
+    if not nomes or not GEMINI_API_KEY:
+        return nomes
+
+    import json
+
+    prompt = (
+        "Reescreva cada nome de produto de loja online em portugues do Brasil, "
+        "com no maximo 8 palavras, para uma mensagem de promocao no WhatsApp. "
+        "Mantenha marca, modelo, quantidade/tamanho e o que o produto e'. "
+        "Tire repeticoes, codigos e palavras de busca (ex.: 'original', "
+        "'envio rapido', 'promocao'). NAO invente caracteristicas, NAO use "
+        "emoji e NAO mude o sentido. Devolva um nome para cada item, na "
+        "mesma ordem.\n\n"
+        + "\n".join(f"{i + 1}. {n}" for i, n in enumerate(nomes))
+    )
+    corpo = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 2048,
+            "responseMimeType": "application/json",
+            "responseSchema": {"type": "ARRAY", "items": {"type": "STRING"}},
+        },
+    }
+    # Os avisos nunca mostram a mensagem do requests: ela traz a URL com a
+    # chave (?key=...) e iria parar no log do GitHub Actions.
+    try:
+        resposta = requests.post(f"{URL_BASE}?key={GEMINI_API_KEY}", json=corpo, timeout=30)
+    except requests.RequestException as erro:
+        print(f"  Aviso: Gemini fora do ar ({type(erro).__name__}); usando os nomes originais.")
+        return nomes
+    if resposta.status_code != 200:
+        print(f"  Aviso: Gemini recusou (HTTP {resposta.status_code}); usando os nomes originais.")
+        return nomes
+    try:
+        partes = resposta.json()["candidates"][0]["content"]["parts"]
+        curtos = json.loads("".join(p.get("text", "") for p in partes))
+    except (KeyError, IndexError, ValueError):
+        print("  Aviso: resposta do Gemini veio estranha; usando os nomes originais.")
+        return nomes
+    if not isinstance(curtos, list) or len(curtos) != len(nomes):
+        return nomes
+    return [str(c).strip() or n for c, n in zip(curtos, nomes)]

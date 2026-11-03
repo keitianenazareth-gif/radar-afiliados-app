@@ -299,30 +299,99 @@ def _encurtar(nome: str, limite: int = 90) -> str:
     return nome if len(nome) <= limite else nome[:limite - 3].rstrip() + "..."
 
 
-def mensagem_shopee(p: dict, link: str) -> str:
+def nome_curto_local(nome: str, max_palavras: int = 9) -> str:
+    """Plano B quando o Gemini nao encurta: fica com o 1o pedaco do nome
+    (antes de ' - ', ' | ', ', ' ou '(') se ele tiver 3+ palavras, e corta
+    em ate ~9 palavras, sem deixar preposicao solta no fim."""
+    nome = " ".join(str(nome or "Oferta").split())
+    primeiro = re.split(r"\s[-|–]\s|,\s|\s\(", nome)[0]
+    if len(primeiro.split()) >= 3:
+        nome = primeiro
+    palavras = nome.split()[:max_palavras]
+    while len(palavras) > 3 and palavras[-1].lower() in {
+            "de", "da", "do", "das", "dos", "para", "pra", "com", "e", "em", "a", "o"}:
+        palavras.pop()
+    return " ".join(palavras)
+
+
+class Estilo:
+    """Ganchos (1a linha) e chamadas (antes do link) de um lote. Escolhe o
+    gancho pelo produto quando da e nao repete gancho no mesmo lote."""
+
+    def __init__(self, config: dict | None = None):
+        config = config or {}
+        self.ganchos = list(config.get("ganchos") or dados.GANCHOS_PADRAO)
+        self.chamadas = list(config.get("chamadas") or dados.CHAMADAS_PADRAO)
+        self.usados: set = set()
+
+    def gancho(self, desconto: float = 0, vendas: float = 0, preco: float = 0) -> str:
+        livres = [g for g in self.ganchos if g not in self.usados] or self.ganchos
+        regras = [("BAIXOU", desconto >= 60), ("MAIS VENDIDO", vendas >= 10000),
+                  ("BARATO", 0 < preco <= 30)]
+        escolhido = ""
+        for palavra, vale in regras:
+            if vale:
+                escolhido = next((g for g in livres if palavra in g.upper()), "")
+                if escolhido:
+                    break
+        if not escolhido:
+            # Sem regra: sorteia entre os que nao dependem de regra (se
+            # acabaram no lote, repete um deles - nunca usa "BAIXOU DEMAIS"
+            # num produto que nao tem desconto pra isso).
+            def _comum(g):
+                return not any(p in g.upper() for p, _ in regras)
+
+            comuns = ([g for g in livres if _comum(g)]
+                      or [g for g in self.ganchos if _comum(g)] or livres)
+            escolhido = random.choice(comuns)
+        self.usados.add(escolhido)
+        return escolhido
+
+    def chamada(self) -> str:
+        return random.choice(self.chamadas)
+
+
+def _topo(estilo: Estilo, nome: str, **sinais) -> list:
+    return [f"*{estilo.gancho(**sinais)}*", "", f"*{_encurtar(nome_curto_local(nome, 12))}*"]
+
+
+def _na_loja(loja: str) -> str:
+    return f"no {loja}" if loja == "Mercado Livre" else f"na {loja}"
+
+
+def _prova_social(nota: float, vendas: float) -> str:
+    extras = []
+    if nota:
+        extras.append(f"⭐ {nota:.1f}".replace(".", ","))
+    if vendas:
+        extras.append(f"🛒 {_vendas_texto(vendas)}")
+    return " · ".join(extras)
+
+
+def _final(estilo: Estilo, link: str) -> list:
+    return ["", estilo.chamada(), f"{link}", "", RODAPE]
+
+
+def mensagem_shopee(p: dict, link: str, estilo: Estilo | None = None,
+                    nome: str = "") -> str:
+    estilo = estilo or Estilo()
     preco = numero(p.get("priceMin"))
     desconto = numero(p.get("priceDiscountRate"))
+    vendas = numero(p.get("sales"))
 
-    linhas = [f"🔥 *{_encurtar(p.get('productName'))}*", ""]
+    linhas = _topo(estilo, nome or p.get("productName"),
+                   desconto=desconto, vendas=vendas, preco=preco)
     # A Shopee informa o MAIOR desconto entre as variacoes e o MENOR preco,
     # que podem ser de variacoes diferentes - por isso nao calculamos "De R$".
     if preco > 0 and desconto >= 5:
         linhas.append(f"A partir de *{_moeda(preco)}* · até {desconto:g}% OFF")
     elif preco > 0:
         linhas.append(f"A partir de *{_moeda(preco)}*")
-
-    extras = []
-    nota = numero(p.get("ratingStar"))
-    if nota:
-        extras.append(f"⭐ {nota:.1f}")
-    if numero(p.get("sales")):
-        extras.append(f"🛒 {_vendas_texto(numero(p.get('sales')))}")
-    if extras:
-        linhas.append(" | ".join(extras))
+    social = _prova_social(numero(p.get("ratingStar")), vendas)
+    if social:
+        linhas.append(social)
     linhas.append("🏬 Shopee")
-
-    linhas += ["", f"👉 {link}", "", RODAPE]
-    return "\n".join(linhas)
+    return "\n".join(linhas + _final(estilo, link))
 
 
 def _valor_do_texto(texto: str) -> float:
@@ -336,35 +405,44 @@ def _valor_do_texto(texto: str) -> float:
         return 0.0
 
 
-def mensagem_fila(item: dict) -> str:
-    linhas = [f"🔥 *{_encurtar(item.get('nome'))}*", ""]
+def _vendas_da_observacao(texto: str) -> float:
+    """'... 🛒 +750 mil vendidos' -> 750000 (usado para escolher o gancho)."""
+    achado = re.search(r"\+(\d+)\s*(mil)?\s*vendidos", str(texto or ""))
+    if not achado:
+        return 0
+    return int(achado.group(1)) * (1000 if achado.group(2) else 1)
+
+
+def mensagem_fila(item: dict, estilo: Estilo | None = None, nome: str = "") -> str:
+    estilo = estilo or Estilo()
     preco = str(item.get("preco") or "").strip()
     valor = _valor_do_texto(preco)
     antigo = _valor_do_texto(item.get("preco_antigo"))
-    if valor > 0 and antigo > valor:
-        desconto = round((1 - valor / antigo) * 100)
+    desconto = round((1 - valor / antigo) * 100) if valor > 0 and antigo > valor else 0
+    observacao = str(item.get("observacao") or "").replace(" | ", " · ")
+
+    linhas = _topo(estilo, nome or item.get("nome"), desconto=desconto,
+                   vendas=_vendas_da_observacao(observacao), preco=valor)
+    if desconto:
         linhas.append(f"~{_moeda(antigo)}~ por *{_moeda(valor)}* ({desconto}% OFF)")
     elif preco:
         if not preco.upper().startswith("R$"):
             preco = "R$ " + preco
         linhas.append(f"Por *{preco}*")
-    if item.get("observacao"):
-        linhas.append(str(item["observacao"]))
+    if observacao:
+        linhas.append(observacao)
     linhas.append(f"🏬 {item.get('loja') or 'Oferta'}")
-    linhas += ["", f"👉 {item.get('link')}", "", RODAPE]
-    return "\n".join(linhas)
+    return "\n".join(linhas + _final(estilo, item.get("link")))
 
 
-def mensagem_cupom(cupom: dict) -> str:
+def mensagem_cupom(cupom: dict, estilo: Estilo | None = None) -> str:
     loja = str(cupom.get("loja") or "").strip()
-    if cupom.get("como_ativar"):
-        # Cupom sem codigo (ex.: Mercado Livre, que se ativa no app).
-        linhas = [f"🎟️ *CUPOM LIBERADO NO {loja.upper()}!*", ""]
-    else:
-        linhas = [f"🎟️ *CUPOM {loja.upper()}*", ""]
-    if cupom.get("descricao"):
-        linhas.append(f"*{cupom['descricao']}*" if cupom.get("como_ativar")
-                      else str(cupom["descricao"]))
+    linhas = ["🎟️ *CUPOM LIBERADO!*", ""]
+    descricao = str(cupom.get("descricao") or "").strip()
+    if descricao:
+        linhas.append(f"*{descricao}* {_na_loja(loja)}" if loja else f"*{descricao}*")
+    elif loja:
+        linhas.append(f"*{loja}*")
     if cupom.get("detalhes"):
         linhas.append(str(cupom["detalhes"]))
     if cupom.get("codigo"):
@@ -373,15 +451,16 @@ def mensagem_cupom(cupom: dict) -> str:
     if validade:
         try:
             _ano, mes, dia = validade.split("-")
-            linhas.append(f"⏰ Válido até {dia}/{mes}")
+            linhas.append(f"⏰ Só até {dia}/{mes}")
         except ValueError:
             pass
     if cupom.get("como_ativar"):
+        # Cupom sem codigo (ex.: Mercado Livre, que se ativa no app).
         linhas += ["", str(cupom["como_ativar"])]
+    elif cupom.get("link"):
+        linhas += ["", "Ativar cupom 👇"]
     if cupom.get("link"):
-        if not cupom.get("como_ativar"):
-            linhas.append("")
-        linhas.append(f"👉 {cupom['link']}")
+        linhas.append(str(cupom["link"]))
     linhas += ["", "_Cupons podem esgotar antes do prazo._"]
     return "\n".join(linhas)
 
@@ -393,6 +472,7 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
     {tipo, titulo, texto, imagem, link, ref}. Nao envia nada."""
     lote = []
     hoje = dados.agora_brasil().strftime("%Y-%m-%d")
+    estilo = Estilo(config)
 
     # 1) Cupom: o mais antigo que ainda nao saiu hoje.
     qtd_cupons = int(config.get("cupons_por_lote") or 0)
@@ -403,7 +483,7 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
             lote.append({
                 "tipo": "cupom",
                 "titulo": f"Cupom {c.get('loja')}: {c.get('codigo') or c.get('descricao')}",
-                "texto": mensagem_cupom(c), "imagem": "", "link": c.get("link", ""),
+                "texto": mensagem_cupom(c, estilo), "imagem": "", "link": c.get("link", ""),
                 "ref": c.get("id"), "codigo": c.get("codigo", ""),
             })
 
@@ -411,27 +491,42 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
 
     # 2) Fila de outras lojas, na ordem em que foram coladas.
     da_fila = dados.listar_fila()[: min(por_lote, int(config.get("fila_por_lote") or 0))]
-    for item in da_fila:
-        lote.append({
-            "tipo": "fila", "titulo": f"{item.get('loja')}: {item.get('nome')}",
-            "texto": mensagem_fila(item), "imagem": item.get("imagem", ""),
-            "link": item.get("link", ""), "ref": item.get("id"),
-            "nome": str(item.get("nome") or ""),
-        })
 
     # 3) Completa com Shopee.
     faltam = por_lote - len(da_fila)
+    da_shopee = []
     if faltam > 0:
         historico = dados.ler_historico()
-        for p in escolher_ofertas_shopee(faltam, dados.ids_recentes(historico), config):
-            link = link_afiliado_shopee(p) if gerar_links else str(p.get("offerLink") or "")
-            lote.append({
-                "tipo": "shopee", "lista": p["_lista"],
-                "titulo": f"Shopee ({p['_lista']}): {p.get('productName')}",
-                "texto": mensagem_shopee(p, link), "imagem": str(p.get("imageUrl") or ""),
-                "link": link, "ref": str(p.get("itemId")),
-                "nome": str(p.get("productName") or ""),
-            })
+        da_shopee = escolher_ofertas_shopee(faltam, dados.ids_recentes(historico), config)
+
+    # Nome curto pelo Gemini: uma chamada so para o lote todo (se falhar,
+    # ficam os nomes originais). O titulo do historico usa o nome original,
+    # que e' o que o robo compara para nao repetir produto.
+    nomes = [str(i.get("nome") or "") for i in da_fila]
+    nomes += [str(p.get("productName") or "") for p in da_shopee]
+    curtos = nomes
+    if nomes and config.get("nome_curto_ia", True):
+        from campanhas_ia import encurtar_nomes
+
+        curtos = encurtar_nomes(nomes)
+
+    for item, curto in zip(da_fila, curtos):
+        lote.append({
+            "tipo": "fila", "titulo": f"{item.get('loja')}: {item.get('nome')}",
+            "texto": mensagem_fila(item, estilo, curto), "imagem": item.get("imagem", ""),
+            "link": item.get("link", ""), "ref": item.get("id"),
+            "nome": str(item.get("nome") or ""),
+        })
+    for p, curto in zip(da_shopee, curtos[len(da_fila):]):
+        link = link_afiliado_shopee(p) if gerar_links else str(p.get("offerLink") or "")
+        lote.append({
+            "tipo": "shopee", "lista": p["_lista"],
+            "titulo": f"Shopee ({p['_lista']}): {p.get('productName')}",
+            "texto": mensagem_shopee(p, link, estilo, curto),
+            "imagem": str(p.get("imageUrl") or ""),
+            "link": link, "ref": str(p.get("itemId")),
+            "nome": str(p.get("productName") or ""),
+        })
     return lote
 
 
