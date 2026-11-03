@@ -17,6 +17,10 @@ marque aqui com [x] e faça commit.
   ("Enviar agora" roda no Render, que já tem as chaves do WhatsApp).
 - Instagram: @clube.doquero ("Achadinhos e Promoções | Cupons"), link do grupo na bio.
 
+- Marca d'agua @clube.doquero (marca_dagua.py): fotos do robo do WhatsApp (canto
+  inferior direito) e videos/Reels gerados por web/video_campanha.py (no alto, a esquerda,
+  fora dos botoes do Reels). MARCA_DAGUA=0 desliga; MARCA_DAGUA_TEXTO troca o texto.
+
 ## Fazer no notebook
 - [ ] 1. Secrets do GitHub (Settings > Secrets and variables > Actions): WHATSAPP_API_URL
       (domínio do Railway), WHATSAPP_API_KEY (AUTHENTICATION_API_KEY do Railway; nunca

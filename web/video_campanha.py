@@ -77,6 +77,25 @@ _CABECALHOS = {
 _PASTA_FONTES = os.path.join(os.path.dirname(__file__), "static", "fonts")
 
 
+# ---------------------------------------------------------------------------
+# Marca d'agua (@clube.doquero) no canto do video
+# ---------------------------------------------------------------------------
+
+def _com_marca(video):
+    """Poe a marca d'agua por cima do video inteiro. Se falhar, devolve o
+    video sem marca (a marca nunca pode impedir o video de sair)."""
+    try:
+        import marca_dagua
+        if not marca_dagua.ligada():
+            return video
+        larg, alt = video.size
+        marca = ImageClip(np.array(marca_dagua.camada(larg, alt, posicao="superior_esquerdo"))).with_duration(video.duration)
+        return CompositeVideoClip([video, marca], size=(larg, alt)).with_audio(video.audio)
+    except Exception as erro:  # noqa: BLE001
+        print(f"Aviso: marca d'agua no video falhou ({erro}); seguindo sem marca.")
+        return video
+
+
 def _fonte(tamanho, negrito=True):
     # A fonte embutida (Roboto, licenca Apache 2.0) vai primeiro: garante
     # o mesmo visual em qualquer lugar (PC, Render, GitHub Actions). As
@@ -385,6 +404,7 @@ def _montar_video_ia(produto, roteiro, nome_id, prompt_video=None):
         narracao = narracao.subclipped(0, max(0.1, video.duration - 0.3))
     video = video.with_audio(narracao.with_start(0.3))
 
+    video = _com_marca(video)
     video.write_videofile(
         caminho_mp4,
         fps=FPS,
@@ -434,6 +454,7 @@ def _montar_video_personagem_animada(produto, roteiro, nome_id, personagem_url):
         narracao = narracao.subclipped(0, max(0.1, video.duration - 0.3))
     video = video.with_audio(narracao.with_start(0.3))
 
+    video = _com_marca(video)
     video.write_videofile(
         caminho_mp4,
         fps=FPS,
@@ -532,6 +553,7 @@ def montar_video(
     video = video.with_audio(narracao)
 
     # 5) exporta
+    video = _com_marca(video)
     video.write_videofile(
         caminho_mp4,
         fps=FPS,

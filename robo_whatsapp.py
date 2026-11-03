@@ -15,7 +15,8 @@ Cada lote tem:
       nome) e pulando produtos com palavras proibidas.
 
 Os links da Shopee saem como link curto de afiliada com a marcacao
-(subId) "whatsapp". Envio pela Evolution API, com pausa entre mensagens.
+(subId) "whatsapp". As fotos saem com a marca d'agua @clube.doquero
+(marca_dagua.py; MARCA_DAGUA=0 desliga). Envio pela Evolution API, com pausa entre mensagens.
 Os ajustes (ligado/pausado, horarios, quantidades, palavras proibidas,
 tag da Amazon) ficam no Upstash e sao editados pela pagina /whatsapp.
 
@@ -552,6 +553,22 @@ def _enviar_texto(grupo_id: str, texto: str) -> None:
                {"number": grupo_id, "text": texto, "linkPreview": True})
 
 
+def _foto_com_marca(url: str) -> str:
+    """Baixa a foto e devolve em base64 com a marca d'agua @clube.doquero.
+    Se algo falhar (ou a marca estiver desligada), devolve o link original,
+    pra nunca deixar de mandar a oferta por causa da marca."""
+    try:
+        import marca_dagua
+        if not marca_dagua.ligada():
+            return url
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        return marca_dagua.jpeg_base64(resp.content)
+    except Exception as erro:  # noqa: BLE001 - a marca e' opcional
+        print(f"  Aviso: nao consegui colocar a marca d'agua ({erro}); mandando a foto original.")
+        return url
+
+
 def enviar_mensagem(grupo_id: str, msg: dict) -> None:
     instancia = _env("WHATSAPP_INSTANCIA")
     enviado = False
@@ -561,7 +578,7 @@ def enviar_mensagem(grupo_id: str, msg: dict) -> None:
                 "number": grupo_id,
                 "mediatype": "image",
                 "mimetype": "image/jpeg",
-                "media": msg["imagem"],
+                "media": _foto_com_marca(msg["imagem"]),
                 "fileName": "oferta.jpg",
                 "caption": msg["texto"],
             })

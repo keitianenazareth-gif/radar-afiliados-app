@@ -38,7 +38,7 @@ jobs:
           python-version: "3.12"
 
       - name: Instalar dependencias
-        run: pip install requests tzdata
+        run: pip install requests tzdata pillow
 
       - name: Rodar o robo do WhatsApp
         env:
