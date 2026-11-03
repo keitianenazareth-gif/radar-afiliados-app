@@ -35,12 +35,14 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import sys
+import time
 
 import requests
 
-from shopee import buscar_produtos, numero
+from shopee import buscar_produtos, nota_oportunidade, numero
 from campanhas_ia import gerar_campanha, gerar_roteiro_video
 from web import galeria
 from web.instagram_publish import InstagramPublishError, postar_reel
@@ -92,9 +94,48 @@ def _salvar_historico(links: list) -> None:
     _upstash_cmd(["SET", CHAVE_HISTORICO, json.dumps(links[-MAX_HISTORICO:])])
 
 
+# Categorias usadas quando a vitrine geral da Shopee falha (mesma lista do
+# robo do WhatsApp). Desde 02/11/2026 a busca sem palavra-chave as vezes
+# volta "error [10000]: System Error"; por categoria continua funcionando.
+CATEGORIAS_RESERVA = [
+    "casa", "cozinha", "beleza", "maquiagem", "skincare", "moda feminina",
+    "roupa fitness", "pet", "infantil", "eletronicos", "organizacao",
+    "decoracao", "cama mesa banho", "bolsas", "calcados",
+]
+
+
+def _buscar_produtos_shopee() -> list:
+    """Tenta a vitrine geral (opcao '5') ate 3 vezes; se a Shopee continuar
+    com erro, busca por categorias sorteadas e calcula a mesma nota de
+    oportunidade, pra escolha do produto continuar igual."""
+    ultimo_erro = None
+    for tentativa in range(3):
+        try:
+            return buscar_produtos("5", "", limite=20)
+        except RuntimeError as erro:
+            ultimo_erro = erro
+            print(f"Aviso: vitrine geral da Shopee falhou (tentativa {tentativa + 1}): {erro}")
+            time.sleep(5)
+
+    categorias = random.sample(CATEGORIAS_RESERVA, len(CATEGORIAS_RESERVA))
+    for termo in categorias:
+        try:
+            produtos = buscar_produtos("4", termo, limite=20)
+        except RuntimeError as erro:
+            ultimo_erro = erro
+            print(f"Aviso: busca da categoria '{termo}' falhou: {erro}")
+            continue
+        if produtos:
+            print(f"Usando a categoria '{termo}' (vitrine geral indisponivel).")
+            for p in produtos:
+                p["nota"] = nota_oportunidade(p)
+            return produtos
+    raise RuntimeError(f"Shopee indisponivel em todas as buscas ({ultimo_erro})")
+
+
 def _buscar_itens_shopee() -> list:
     """Mesma fonte/formato usado pela Visao Geral do site (opcao '5')."""
-    produtos = buscar_produtos("5", "", limite=20)
+    produtos = _buscar_produtos_shopee()
     itens = [
         {
             "plataforma": "Shopee",
