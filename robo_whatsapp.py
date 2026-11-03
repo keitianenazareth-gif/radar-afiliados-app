@@ -322,10 +322,26 @@ def mensagem_shopee(p: dict, link: str) -> str:
     return "\n".join(linhas)
 
 
+def _valor_do_texto(texto: str) -> float:
+    """'R$ 1.234,56' -> 1234.56 (0 se nao der pra ler)."""
+    limpo = re.sub(r"[^0-9,.]", "", str(texto or ""))
+    if "," in limpo:
+        limpo = limpo.replace(".", "").replace(",", ".")
+    try:
+        return float(limpo)
+    except ValueError:
+        return 0.0
+
+
 def mensagem_fila(item: dict) -> str:
     linhas = [f"🔥 *{_encurtar(item.get('nome'))}*", ""]
     preco = str(item.get("preco") or "").strip()
-    if preco:
+    valor = _valor_do_texto(preco)
+    antigo = _valor_do_texto(item.get("preco_antigo"))
+    if valor > 0 and antigo > valor:
+        desconto = round((1 - valor / antigo) * 100)
+        linhas.append(f"~{_moeda(antigo)}~ por *{_moeda(valor)}* ({desconto}% OFF)")
+    elif preco:
         if not preco.upper().startswith("R$"):
             preco = "R$ " + preco
         linhas.append(f"Por *{preco}*")

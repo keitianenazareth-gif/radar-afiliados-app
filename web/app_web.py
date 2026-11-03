@@ -712,10 +712,20 @@ def whatsapp_enviar_agora():
 def whatsapp_fila_adicionar():
     import whatsapp_dados as wd
 
+    # O fila_ml.py (tarefa agendada do Mercado Livre) manda formato=json e
+    # recebe a resposta em JSON em vez de voltar para a pagina.
+    em_json = request.form.get("formato") == "json"
+
+    def _responder(ok: bool, mensagem: str, situacao: str):
+        if em_json:
+            return jsonify({"ok": ok, "situacao": situacao, "mensagem": mensagem})
+        flash(mensagem)
+        return redirect(url_for("whatsapp") + "#fila")
+
     link = request.form.get("link", "").strip()
     if not link.startswith("http"):
-        flash("Cole o link completo do produto (começando com https://).")
-        return redirect(url_for("whatsapp") + "#fila")
+        return _responder(False, "Cole o link completo do produto (começando com https://).",
+                          "erro")
 
     loja = request.form.get("loja") or "auto"
     if loja == "auto":
@@ -731,17 +741,31 @@ def whatsapp_fila_adicionar():
         preco = preco or info.get("preco_texto", "")
 
     if not nome:
-        flash("Não consegui pegar o nome do produto sozinho (a loja bloqueou). "
-              "Cole o link de novo e preencha o nome (e o preço, se quiser).")
-        return redirect(url_for("whatsapp") + "#fila")
+        return _responder(False, "Não consegui pegar o nome do produto sozinho (a loja "
+                          "bloqueou). Cole o link de novo e preencha o nome (e o preço, "
+                          "se quiser).", "erro")
+
+    if em_json:
+        proibida = wd.tem_palavra_bloqueada(
+            nome, wd.ler_config().get("palavras_bloqueadas") or [])
+        if proibida:
+            return _responder(False, f"Palavra bloqueada ({proibida}): {nome[:60]}",
+                              "bloqueado")
+
+    repetido = wd.produto_repetido(nome)
+    if repetido == "fila":
+        return _responder(False, f"Esse produto já está na fila: {nome[:60]}", "repetido")
+    if repetido == "enviado" and em_json:
+        return _responder(False, f"Esse produto saiu há pouco no grupo: {nome[:60]}",
+                          "repetido")
 
     if loja == "Amazon":
         link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
 
     wd.adicionar_na_fila(loja, link, nome, preco, imagem,
-                         request.form.get("observacao", ""))
-    flash(f"✅ Adicionado na fila: {nome[:60]}")
-    return redirect(url_for("whatsapp") + "#fila")
+                         request.form.get("observacao", ""),
+                         request.form.get("preco_antigo", ""))
+    return _responder(True, f"✅ Adicionado na fila: {nome[:60]}", "adicionado")
 
 
 @app.route("/whatsapp/fila/remover/<item_id>", methods=["POST"])

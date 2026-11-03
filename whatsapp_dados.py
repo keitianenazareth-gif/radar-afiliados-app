@@ -182,13 +182,15 @@ def listar_fila() -> list:
 
 
 def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
-                      imagem: str = "", observacao: str = "") -> dict:
+                      imagem: str = "", observacao: str = "",
+                      preco_antigo: str = "") -> dict:
     item = {
         "id": uuid.uuid4().hex[:8],
         "loja": loja or "Outra",
         "link": link.strip(),
         "nome": nome.strip(),
         "preco": preco.strip(),
+        "preco_antigo": preco_antigo.strip(),
         "imagem": imagem.strip(),
         "observacao": observacao.strip(),
         "criado_em": time.time(),
@@ -197,6 +199,28 @@ def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
     fila.append(item)
     _gravar_json(CHAVE_FILA, fila)
     return item
+
+
+def produto_repetido(nome: str) -> str:
+    """'fila' se um produto com o mesmo nome ja esta na fila, 'enviado' se
+    saiu recentemente (historico de envios), '' se e' novo."""
+    # O historico guarda o titulo cortado em 120 letras, entao compara so o
+    # comeco do nome.
+    def _comeco(texto) -> str:
+        return " ".join(normalizar(texto).split())[:80]
+
+    alvo = _comeco(nome)
+    if not alvo:
+        return ""
+    if any(_comeco(i.get("nome")) == alvo for i in listar_fila()):
+        return "fila"
+    for registro in ler_log():
+        if not registro.get("ok"):
+            continue
+        titulo = str(registro.get("titulo") or "")
+        if _comeco(titulo.split(": ", 1)[-1]) == alvo:
+            return "enviado"
+    return ""
 
 
 def remover_da_fila(item_id: str) -> None:

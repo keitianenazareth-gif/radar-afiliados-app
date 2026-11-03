@@ -15,3 +15,6 @@ gerar_token_ml.py
 web/static/videos/
 web/static/kairogen/
 web/static/uploads/
+
+# Ofertas geradas pela tarefa agendada do Mercado Livre
+tarefa_ml/ofertas_ml.json
