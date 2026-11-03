@@ -79,7 +79,8 @@ def enviar_para_fila(sessao: requests.Session, oferta: dict) -> dict:
     else:
         caminho = "/whatsapp/fila/adicionar"
         dados = {campo: str(oferta.get(campo) or "").strip() for campo in CAMPOS}
-    dados.update({"loja": "Mercado Livre", "formato": "json"})
+    # "loja": "Amazon" para ofertas da Amazon (o site poe a tag e tira o preco).
+    dados.update({"loja": oferta.get("loja") or "Mercado Livre", "formato": "json"})
     resposta = sessao.post(f"{RADAR_URL}{caminho}", data=dados, timeout=60)
     if resposta.status_code == 401:
         raise RuntimeError("Login recusado: confira WEB_USUARIO/WEB_SENHA no credenciais_locais.py.")
@@ -104,10 +105,17 @@ def main() -> int:
         from robo_whatsapp import mensagem_cupom, mensagem_fila
 
         for oferta in ofertas:
+            loja = oferta.get("loja") or "Mercado Livre"
             if oferta.get("tipo") == "cupom":
-                print(mensagem_cupom({**_dados_cupom(oferta), "loja": "Mercado Livre"}))
+                print(mensagem_cupom({**_dados_cupom(oferta), "loja": loja}))
+            elif loja == "Amazon":
+                from whatsapp_dados import aplicar_tag_amazon
+
+                tag = os.environ.get("AMAZON_TAG", "2410890e-20")
+                print(mensagem_fila({**oferta, "loja": loja, "preco": "", "preco_antigo": "",
+                                     "link": aplicar_tag_amazon(oferta["link"], tag)}))
             else:
-                print(mensagem_fila({**oferta, "loja": "Mercado Livre"}))
+                print(mensagem_fila({**oferta, "loja": loja}))
             print("-" * 40)
         return 0
 

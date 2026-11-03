@@ -732,9 +732,14 @@ def whatsapp_fila_adicionar():
         loja = _loja_do_link(link)
     nome = request.form.get("nome", "").strip()
     preco = request.form.get("preco", "").strip()
+    preco_antigo = request.form.get("preco_antigo", "").strip()
     imagem = request.form.get("imagem", "").strip()
 
-    if not nome or not imagem or not preco:
+    if loja == "Amazon" and em_json:
+        # Regra do programa de associados: preco/foto copiados do site nao
+        # podem ir na mensagem (o WhatsApp mostra a previa do link sozinho).
+        preco = preco_antigo = imagem = ""
+    elif not nome or not imagem or not preco:
         info = produto_manual.buscar_metadados_link(link)
         nome = nome or info.get("nome", "")
         imagem = imagem or info.get("imagem", "")
@@ -763,8 +768,7 @@ def whatsapp_fila_adicionar():
         link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
 
     wd.adicionar_na_fila(loja, link, nome, preco, imagem,
-                         request.form.get("observacao", ""),
-                         request.form.get("preco_antigo", ""))
+                         request.form.get("observacao", ""), preco_antigo)
     return _responder(True, f"✅ Adicionado na fila: {nome[:60]}", "adicionado")
 
 

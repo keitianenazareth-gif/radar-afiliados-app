@@ -2,8 +2,8 @@
 
 Roda no notebook da Keiti (app do Claude aberto + Chrome logado no Mercado
 Livre, extensão Claude in Chrome conectada). Coloca de 3 a 5 ofertas do
-Mercado Livre na fila da página /whatsapp e, de manhã, 1 ou 2 cupons na
-lista de cupons; os lotes do robô mandam no grupo.
+Mercado Livre e 1 ou 2 da Amazon na fila da página /whatsapp e, de manhã,
+1 ou 2 cupons do ML na lista de cupons; os lotes do robô mandam no grupo.
 
 Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
 
@@ -76,6 +76,24 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
 
    (`⚠️ Está esgotando!` só quando o `aviso` disser isso; `validade` vem
    pronta do extrair_cupons.js.)
+
+   **Amazon (1 ou 2 por execução):**
+   - Abrir `https://www.amazon.com.br/deals` (não precisa de login) e rodar
+     `tarefa_ml\extrair_ofertas_amazon.js` (ele rola a página sozinho).
+   - Escolher pelo `desconto` (>= 30%), preço até R$ 300 e utilidade para o
+     grupo (casa, cozinha, beleza, infantil); evitar livros em excesso,
+     eletrônicos caros e os mesmos itens proibidos do passo 2.
+   - O link é o `link` do extrator (`https://www.amazon.com.br/dp/ASIN`): o
+     site coloca a tag de associada sozinho. NÃO usar o Gerador do ML.
+   - No arquivo, **sem preço e sem foto** (regra do programa de associados):
+
+   ```json
+   {"loja": "Amazon", "link": "https://www.amazon.com.br/dp/B075TGQVHT",
+    "nome": "Chaleira Elétrica Inox Agratto 1,8 Litro 220V",
+    "observacao": "⚡ Oferta Exclusiva Prime"}
+   ```
+
+   (`observacao` = o `selo` do extrator com um emoji; nome curto, sem inventar.)
 
 5. **Conferir e mandar para a fila:**
 

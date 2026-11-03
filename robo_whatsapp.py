@@ -263,13 +263,16 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
 
 
 def link_afiliado_shopee(p: dict) -> str:
-    """Link curto com subId 'whatsapp'; se falhar, usa o link normal."""
+    """Link curto com subIds 'whatsapp' e a hora do envio (ex.: 'h20'), para
+    o relatorio da Shopee mostrar qual horario vende mais; se falhar, usa o
+    link normal."""
     origem = p.get("productLink")
     if not origem and p.get("shopId") and p.get("itemId"):
         origem = f"https://shopee.com.br/product/{p['shopId']}/{p['itemId']}"
     if origem:
         try:
-            return gerar_link_curto(origem, ["whatsapp"])
+            hora = f"h{dados.agora_brasil().hour:02d}"
+            return gerar_link_curto(origem, ["whatsapp", hora])
         except (RuntimeError, requests.RequestException) as erro:
             print(f"  Aviso: link curto falhou ({erro}); usando o link normal.")
     return str(p.get("offerLink") or origem or "")
@@ -448,8 +451,10 @@ def _evolution(metodo: str, caminho: str, corpo: dict | None = None):
 
 
 def _enviar_texto(grupo_id: str, texto: str) -> None:
+    # linkPreview: o WhatsApp mostra a foto/titulo do link (usado na Amazon,
+    # que vai sem foto anexada).
     _evolution("POST", f"/message/sendText/{_env('WHATSAPP_INSTANCIA')}",
-               {"number": grupo_id, "text": texto})
+               {"number": grupo_id, "text": texto, "linkPreview": True})
 
 
 def enviar_mensagem(grupo_id: str, msg: dict) -> None:
