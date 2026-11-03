@@ -6,6 +6,11 @@ Resumo do essencial: sou **analista administrativa, não programadora** — expl
 antes de implementar, trabalhe em passos pequenos, diagnostique a causa antes de consertar,
 e me dê comandos prontos para Windows/PowerShell.
 
+## Pendências
+
+A lista do que falta fazer (em ordem) está em **`PENDENCIAS.md`**. Leia esse arquivo
+no começo de cada sessão e marque os itens concluídos.
+
 ## O que é o projeto
 
 App para pesquisar produtos de programas de afiliados e gerar material de divulgação:
