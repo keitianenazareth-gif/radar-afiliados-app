@@ -1,0 +1,5 @@
+# So o robo do WhatsApp no Railway usa este arquivo (o site no Render usa
+# web/requirements.txt). Mesmas bibliotecas do .github/workflows/robo-whatsapp.yml.
+requests
+tzdata
+pillow
