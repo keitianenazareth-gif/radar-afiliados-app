@@ -19,7 +19,9 @@ marque aqui com [x] e faça commit.
 
 - Marca d'agua @clube.doquero (marca_dagua.py): fotos do robo do WhatsApp (canto
   inferior direito) e videos/Reels gerados por web/video_campanha.py (no alto, a esquerda,
-  fora dos botoes do Reels). MARCA_DAGUA=0 desliga; MARCA_DAGUA_TEXTO troca o texto.
+  fora dos botoes do Reels). DESLIGADA por enquanto (decisao da Keiti em 03/11);
+  para ligar, MARCA_DAGUA=1 nos Secrets do GitHub e no Environment do Render.
+  MARCA_DAGUA_TEXTO troca o texto. Opcao vista: so o @ sem a faixa escura.
 
 ## Fazer no notebook
 - [ ] 1. Secrets do GitHub (Settings > Secrets and variables > Actions): WHATSAPP_API_URL

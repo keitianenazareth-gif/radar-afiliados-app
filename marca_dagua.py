@@ -10,7 +10,8 @@ junto (e faz propaganda do Clube do Quero).
 
 Ajustes por variavel de ambiente (opcionais):
     MARCA_DAGUA_TEXTO   texto da marca (padrao "@clube.doquero")
-    MARCA_DAGUA         "0" desliga a marca em tudo
+    MARCA_DAGUA         "1" liga a marca (DESLIGADA por padrao: a Keiti
+                        preferiu deixar sem por enquanto, 03/11/2026)
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ _FONTE = os.path.join(_PASTA, "web", "static", "fonts", "Roboto-Bold.ttf")
 
 
 def ligada() -> bool:
-    return os.environ.get("MARCA_DAGUA", "1") != "0"
+    return os.environ.get("MARCA_DAGUA", "0") == "1"
 
 
 def texto_marca() -> str:
