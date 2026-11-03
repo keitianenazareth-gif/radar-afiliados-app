@@ -5,7 +5,9 @@ no claude.ai (doc `claude/whatsapp-robo-status.md`). Ao concluir um item,
 marque aqui com [x] e faça commit.
 
 ## Situação atual
-- Robô do WhatsApp (`robo_whatsapp.py`): horários 9, 12, 14, 16, 19 e 21h.
+- Robô do WhatsApp (`robo_whatsapp.py`): horários 9, 12, 15, 18, 20 e 22h (mudado em 03/11).
+  Links da Shopee levam subId da hora (ex.: `h20`): em 2-3 semanas, ver no relatório da
+  Shopee quais horários vendem mais e ajustar.
   Commit 500f8ba (02/11): não repete produto parecido (código, foto e nome) e,
   se o GitHub atrasar, manda o lote do último horário até 3h depois.
 - Servidor Evolution API no Railway (projeto "sublime-spirit"), instância `promocoes`.
@@ -30,10 +32,15 @@ marque aqui com [x] e faça commit.
 - [ ] 5. Verificar o dispositivo no app do Claude (para usar o navegador do app).
 - [ ] 6. Tarefa agendada pelo navegador para Mercado Livre, Amazon (SiteStripe) e Shein:
       escolher ofertas, gerar link de afiliada e colocar na fila. Amazon sem preço na mensagem.
-      - [x] Mercado Livre (03/11): tarefa "Ofertas do Mercado Livre para o grupo" no app do
-        Claude, 8h e 13h. Passo a passo em `tarefa_ml/INSTRUCOES.md`; `fila_ml.py` põe na fila.
-        Precisa do notebook ligado, app do Claude aberto e Chrome logado no ML.
-      - [ ] Amazon e Shein.
+      - [x] Mercado Livre (03/11): tarefa "Ofertas do Mercado Livre e Amazon para o grupo" no
+        app do Claude, 8h, 14h e 19h. Passo a passo em `tarefa_ml/INSTRUCOES.md`; `fila_ml.py`
+        põe na fila. Precisa do notebook ligado, app do Claude aberto e Chrome logado no ML.
+      - [x] Amazon (03/11): mesma tarefa, página de ofertas sem login, tag `2410890e-20` nos
+        Ajustes; mensagem sem preço e sem foto (regra do programa de associados).
+      - [ ] Shein: a Keiti precisa entrar na conta da Shein no Chrome do notebook; depois
+        explorar o painel br.shein.com/affiliate (gerador de links e cupons).
+      - [ ] No notebook: abrir a tarefa em Scheduled e clicar "Run now" uma vez para aprovar
+        Chrome e PowerShell (senão a execução automática pode parar pedindo permissão).
 - [ ] 7. Fila aceitar só o link do ML (o robô busca nome, preço e foto sozinho).
 - [ ] 8. Escutar os grupos de promoção em que o chip entrou: links de produto (Shopee vira
       link da Keiti pela API; ML/Amazon/Shein vão para a fila) e cupons (Gemini identifica).
