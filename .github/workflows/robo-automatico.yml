@@ -1,11 +1,9 @@
 name: Robo Automatico - Radar Afiliados
 
-# Roda sozinho 3x por dia (10h, 15h e 20h no horario de Brasilia) e
-# publica um Reel novo no Instagram (@clubedoquero). Tambem pode ser
-# disparado manualmente pela aba Actions -> Robo Automatico -> Run workflow.
+# Publica um Reel novo no Instagram. O agendamento (3x por dia) foi desligado
+# em 03/11/2026 a pedido da Keiti: o plano e' 1 Reel por dia, com aprovacao.
+# So roda manualmente: Actions -> Robo Automatico -> Run workflow.
 on:
-  schedule:
-    - cron: "0 13,18,23 * * *"
   workflow_dispatch:
 
 jobs:
