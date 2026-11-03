@@ -23,7 +23,10 @@ marque aqui com [x] e faça commit.
       colar no chat) e WHATSAPP_INSTANCIA = promocoes. Sem isso o robô agendado não envia
       (logs de 02/11: faltam essas 3 chaves).
 - [ ] 2. Rodar o robô no Railway com agendamento pontual (o cron do GitHub atrasa de 3 a 7h).
-- [ ] 3. Mensagens mais chamativas (prompt abaixo).
+- [x] 3. Mensagens mais chamativas (03/11, commit be0af4d). Ganchos e chamadas editáveis nos
+      Ajustes; "PREÇO DE ERRO?" virou "BAIXOU DEMAIS!" a pedido da Keiti. O nome curto por IA
+      está ligado, mas a chave do Gemini responde HTTP 402 (pede pagamento): enquanto isso vale
+      o encurtamento simples. Conferir o plano da chave no Google AI Studio.
 - [ ] 4. Mensagem diária "compartilhe o grupo" no último lote (21h), com o link de convite,
       texto variando; ligar/desligar e editar na página /whatsapp. Exemplos:
       "💸 Gostou das ofertas de hoje? Manda o link pra aquela amiga que ama uma promoção: <link>"
