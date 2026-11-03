@@ -201,9 +201,10 @@ def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
     return item
 
 
-def produto_repetido(nome: str) -> str:
-    """'fila' se um produto com o mesmo nome ja esta na fila, 'enviado' se
-    saiu recentemente (historico de envios), '' se e' novo."""
+def produto_repetido(nome: str, cupom: bool = False) -> str:
+    """'fila' se um produto com o mesmo nome ja esta na fila (ou, com
+    cupom=True, um cupom com a mesma descricao ja esta cadastrado),
+    'enviado' se saiu recentemente (historico de envios), '' se e' novo."""
     # O historico guarda o titulo cortado em 120 letras, entao compara so o
     # comeco do nome.
     def _comeco(texto) -> str:
@@ -212,7 +213,10 @@ def produto_repetido(nome: str) -> str:
     alvo = _comeco(nome)
     if not alvo:
         return ""
-    if any(_comeco(i.get("nome")) == alvo for i in listar_fila()):
+    if cupom:
+        if any(_comeco(c.get("descricao")) == alvo for c in listar_cupons()):
+            return "fila"
+    elif any(_comeco(i.get("nome")) == alvo for i in listar_fila()):
         return "fila"
     for registro in ler_log():
         if not registro.get("ok"):
@@ -251,7 +255,8 @@ def cupom_valido(cupom: dict, hoje: str | None = None) -> bool:
 
 
 def adicionar_cupom(loja: str, codigo: str, descricao: str, link: str,
-                    validade: str = "") -> dict:
+                    validade: str = "", detalhes: str = "", como_ativar: str = "",
+                    uma_vez: bool = False) -> dict:
     cupom = {
         "id": uuid.uuid4().hex[:8],
         "loja": loja or "Outra",
@@ -259,6 +264,9 @@ def adicionar_cupom(loja: str, codigo: str, descricao: str, link: str,
         "descricao": descricao.strip(),
         "link": link.strip(),
         "validade": validade.strip(),  # AAAA-MM-DD (vazio = sem validade)
+        "detalhes": detalhes.strip(),  # ex.: "Compra mínima R$ 40 · desconto até R$ 20"
+        "como_ativar": como_ativar.strip(),  # usado quando nao tem codigo
+        "uma_vez": uma_vez,            # cupons do robo saem 1 vez so
         "ultimo_envio": "",            # AAAA-MM-DD
         "criado_em": time.time(),
     }
@@ -278,8 +286,11 @@ def marcar_cupom_enviado(cupom_id: str) -> None:
     for c in cupons:
         if c.get("id") == cupom_id:
             c["ultimo_envio"] = hoje
-    # Aproveita pra tirar os vencidos.
-    _gravar_json(CHAVE_CUPONS, [c for c in cupons if cupom_valido(c, hoje)])
+    # Aproveita pra tirar os vencidos e os do robo que ja sairam (uma_vez).
+    _gravar_json(CHAVE_CUPONS, [
+        c for c in cupons
+        if cupom_valido(c, hoje) and not (c.get("uma_vez") and c.get("ultimo_envio"))
+    ])
 
 
 # ---------------------------------------------------------------- historico Shopee

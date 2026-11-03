@@ -353,9 +353,17 @@ def mensagem_fila(item: dict) -> str:
 
 
 def mensagem_cupom(cupom: dict) -> str:
-    linhas = [f"🎟️ *CUPOM {str(cupom.get('loja') or '').upper()}*", ""]
+    loja = str(cupom.get("loja") or "").strip()
+    if cupom.get("como_ativar"):
+        # Cupom sem codigo (ex.: Mercado Livre, que se ativa no app).
+        linhas = [f"🎟️ *CUPOM LIBERADO NO {loja.upper()}!*", ""]
+    else:
+        linhas = [f"🎟️ *CUPOM {loja.upper()}*", ""]
     if cupom.get("descricao"):
-        linhas.append(str(cupom["descricao"]))
+        linhas.append(f"*{cupom['descricao']}*" if cupom.get("como_ativar")
+                      else str(cupom["descricao"]))
+    if cupom.get("detalhes"):
+        linhas.append(str(cupom["detalhes"]))
     if cupom.get("codigo"):
         linhas.append(f"Código: *{cupom['codigo']}*")
     validade = cupom.get("validade")
@@ -365,8 +373,12 @@ def mensagem_cupom(cupom: dict) -> str:
             linhas.append(f"⏰ Válido até {dia}/{mes}")
         except ValueError:
             pass
+    if cupom.get("como_ativar"):
+        linhas += ["", str(cupom["como_ativar"])]
     if cupom.get("link"):
-        linhas += ["", f"👉 {cupom['link']}"]
+        if not cupom.get("como_ativar"):
+            linhas.append("")
+        linhas.append(f"👉 {cupom['link']}")
     linhas += ["", "_Cupons podem esgotar antes do prazo._"]
     return "\n".join(linhas)
 

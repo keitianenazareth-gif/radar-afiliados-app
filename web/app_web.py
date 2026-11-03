@@ -788,18 +788,34 @@ def whatsapp_fila_mover(item_id, direcao):
 def whatsapp_cupons_adicionar():
     import whatsapp_dados as wd
 
+    # O fila_ml.py (tarefa agendada) manda formato=json: recebe JSON, o
+    # cupom e' checado contra repetidos e sai uma vez so.
+    em_json = request.form.get("formato") == "json"
+
+    def _responder(ok: bool, mensagem: str, situacao: str):
+        if em_json:
+            return jsonify({"ok": ok, "situacao": situacao, "mensagem": mensagem})
+        flash(mensagem)
+        return redirect(url_for("whatsapp") + "#cupons")
+
     codigo = request.form.get("codigo", "").strip()
     descricao = request.form.get("descricao", "").strip()
     link = request.form.get("link", "").strip()
     if not (codigo or link):
-        flash("Preencha pelo menos o código do cupom ou o link.")
-        return redirect(url_for("whatsapp") + "#cupons")
+        return _responder(False, "Preencha pelo menos o código do cupom ou o link.", "erro")
     loja = request.form.get("loja") or "Outra"
+    if em_json and wd.produto_repetido(descricao or codigo, cupom=True):
+        return _responder(False, f"Cupom já cadastrado ou enviado há pouco: {descricao or codigo}",
+                          "repetido")
     if loja == "Amazon" and link:
         link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
-    wd.adicionar_cupom(loja, codigo, descricao, link, request.form.get("validade", ""))
-    flash("✅ Cupom cadastrado. Ele sai no próximo lote (no máximo 1x por dia, até vencer).")
-    return redirect(url_for("whatsapp") + "#cupons")
+    wd.adicionar_cupom(loja, codigo, descricao, link, request.form.get("validade", ""),
+                       request.form.get("detalhes", ""), request.form.get("como_ativar", ""),
+                       uma_vez=em_json)
+    if em_json:
+        return _responder(True, f"✅ Cupom cadastrado: {descricao or codigo}", "adicionado")
+    return _responder(True, "✅ Cupom cadastrado. Ele sai no próximo lote (no máximo 1x por "
+                      "dia, até vencer).", "adicionado")
 
 
 @app.route("/whatsapp/cupons/remover/<cupom_id>", methods=["POST"])

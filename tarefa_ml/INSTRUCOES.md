@@ -2,7 +2,8 @@
 
 Roda no notebook da Keiti (app do Claude aberto + Chrome logado no Mercado
 Livre, extensão Claude in Chrome conectada). Coloca de 3 a 5 ofertas do
-Mercado Livre na fila da página /whatsapp; os lotes do robô mandam no grupo.
+Mercado Livre na fila da página /whatsapp e, de manhã, 1 ou 2 cupons na
+lista de cupons; os lotes do robô mandam no grupo.
 
 Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
 
@@ -50,6 +51,32 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      "💳 ... com crédito disponível").
    - Não inventar nada: nome, preços e foto vêm só do passo 1.
 
+   **Cupons (só na execução da manhã, antes das 12h):**
+   - Abrir `https://www.mercadolivre.com.br/cupons` e rodar
+     `tarefa_ml\extrair_cupons.js`. NÃO clicar em "Aplicar" nem em nada da
+     página (isso mexe na conta da Keiti).
+   - Escolher **1 ou 2** cupons: `tipo` = `EU_QUERO` e `onde` = "Em produtos
+     selecionados" (valem para todo mundo); compra mínima até R$ 100;
+     validade de pelo menos 2 dias (ou aviso "Está esgotando!", que dá
+     urgência); preferir casa, mercado, beleza, moda e limpeza; evitar
+     maquininhas, peças de carro e cupons de uma loja só (`AUTOMATIC`).
+   - Para cada cupom, pegar o 1º nome de `exemplos`, abrir
+     `https://lista.mercadolivre.com.br/<nome-com-hifens>` e copiar o link do
+     produto com o mesmo nome (`/p/MLB...`, `/up/MLBU...` ou
+     `produto.mercadolivre.com.br/MLB-...`). Esse produto entra no MESMO
+     Gerador de links do passo 3 (junto com as ofertas, na ordem).
+   - No arquivo, o cupom vai assim (o site recusa cupom repetido e cada um
+     sai uma vez só):
+
+   ```json
+   {"tipo": "cupom", "descricao": "40% OFF em Veja",
+    "detalhes": "Compra mínima R$ 20 · desconto até R$ 30 · ⚠️ Está esgotando!",
+    "validade": "2026-11-11", "link": "https://meli.la/..."}
+   ```
+
+   (`⚠️ Está esgotando!` só quando o `aviso` disser isso; `validade` vem
+   pronta do extrair_cupons.js.)
+
 5. **Conferir e mandar para a fila:**
 
    ```
@@ -60,7 +87,8 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    O primeiro só mostra as mensagens; o segundo coloca na fila (o site
    recusa sozinho produto repetido ou com palavra bloqueada).
 
-6. **Resumo final** curto: quais entraram na fila, quais foram pulados e por quê.
+6. **Resumo final** curto: quais ofertas e cupons entraram, quais foram
+   pulados e por quê.
 
 ## Regras
 

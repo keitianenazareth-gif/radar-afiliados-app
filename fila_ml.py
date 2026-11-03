@@ -6,8 +6,13 @@ gera o link oficial de afiliada (meli.la) e grava um arquivo JSON assim:
     [
       {"link": "https://meli.la/...", "nome": "...", "preco": "R$ 49,90",
        "preco_antigo": "R$ 89,90", "imagem": "https://...jpg",
-       "observacao": "⭐ 4,8 | 🛒 +5 mil vendidos"}
+       "observacao": "⭐ 4,8 | 🛒 +5 mil vendidos"},
+      {"tipo": "cupom", "descricao": "30% OFF em Casa",
+       "detalhes": "Compra mínima R$ 40 · desconto até R$ 20",
+       "validade": "2026-12-31", "link": "https://meli.la/..."}
     ]
+
+Itens com "tipo": "cupom" vao para a lista de cupons (saem uma vez so).
 
 Depois roda:
     .\\.venv312\\Scripts\\python.exe fila_ml.py ofertas_ml.json
@@ -35,6 +40,10 @@ except ImportError:
 
 RADAR_URL = os.environ.get("RADAR_URL", "https://radar-afiliados-web.onrender.com")
 CAMPOS = ("link", "nome", "preco", "preco_antigo", "imagem", "observacao")
+CAMPOS_CUPOM = ("link", "descricao", "detalhes", "validade", "como_ativar")
+# Os cupons do Mercado Livre nao tem codigo: a pessoa ativa no app. O link
+# e' de afiliada para um produto em que o cupom vale.
+COMO_ATIVAR_ML = "Ative no app do Mercado Livre em *Cupons* e aproveite neste produto 👇"
 
 
 def ler_ofertas(caminho: str) -> list:
@@ -58,10 +67,20 @@ def acordar_site(sessao: requests.Session) -> None:
     raise RuntimeError("O site do Radar nao respondeu (Render fora do ar?).")
 
 
+def _dados_cupom(cupom: dict) -> dict:
+    dados = {campo: str(cupom.get(campo) or "").strip() for campo in CAMPOS_CUPOM}
+    dados["como_ativar"] = dados["como_ativar"] or COMO_ATIVAR_ML
+    return dados
+
+
 def enviar_para_fila(sessao: requests.Session, oferta: dict) -> dict:
-    dados = {campo: str(oferta.get(campo) or "").strip() for campo in CAMPOS}
+    if oferta.get("tipo") == "cupom":
+        caminho, dados = "/whatsapp/cupons/adicionar", _dados_cupom(oferta)
+    else:
+        caminho = "/whatsapp/fila/adicionar"
+        dados = {campo: str(oferta.get(campo) or "").strip() for campo in CAMPOS}
     dados.update({"loja": "Mercado Livre", "formato": "json"})
-    resposta = sessao.post(f"{RADAR_URL}/whatsapp/fila/adicionar", data=dados, timeout=60)
+    resposta = sessao.post(f"{RADAR_URL}{caminho}", data=dados, timeout=60)
     if resposta.status_code == 401:
         raise RuntimeError("Login recusado: confira WEB_USUARIO/WEB_SENHA no credenciais_locais.py.")
     try:
@@ -82,10 +101,13 @@ def main() -> int:
         return 1
 
     if "--teste" in sys.argv:
-        from robo_whatsapp import mensagem_fila
+        from robo_whatsapp import mensagem_cupom, mensagem_fila
 
         for oferta in ofertas:
-            print(mensagem_fila({**oferta, "loja": "Mercado Livre"}))
+            if oferta.get("tipo") == "cupom":
+                print(mensagem_cupom({**_dados_cupom(oferta), "loja": "Mercado Livre"}))
+            else:
+                print(mensagem_fila({**oferta, "loja": "Mercado Livre"}))
             print("-" * 40)
         return 0
 
@@ -104,7 +126,7 @@ def main() -> int:
         contagem[situacao] = contagem.get(situacao, 0) + 1
         print(f"[{situacao}] {resultado.get('mensagem')}")
 
-    print(f"Resumo: {contagem['adicionado']} na fila, {contagem['repetido']} repetidos, "
+    print(f"Resumo: {contagem['adicionado']} na fila/cupons, {contagem['repetido']} repetidos, "
           f"{contagem['bloqueado']} com palavra bloqueada, {contagem['erro']} com erro.")
     return 0 if contagem["erro"] == 0 else 2
 
