@@ -66,6 +66,16 @@ marque aqui com [x] e faça commit.
        então o robô monta a mensagem (3 melhores ofertas, 1 cupom, convite do grupo) e manda
        para a Keiti colar.
 
+- [ ] 12. Testar o OpenMontage (github.com/calesthio/OpenMontage): sistema de producao de
+       video com agentes para o Claude Code. Ver se melhora os videos de campanha e quanto custa
+       (alguns pipelines podem usar servicos pagos). Testar so no notebook, sem mexer no robo.
+- [ ] 13. Testar o VoiceStudio (github.com/debpalash/voicestudio): narracao/clonagem de voz
+       gratuita e local, alternativa ao ElevenLabs. Conferir se tem portugues do Brasil e se o
+       notebook aguenta (costuma precisar de placa de video). Nao roda no Render gratuito.
+       Comparar com a voz atual (Gemini TTS / edge-tts em web/tts.py).
+       Antes de instalar qualquer projeto de terceiros: conferir estrelas, data da ultima
+       atualizacao e licenca.
+
 ## Decisões
 - Não mandar mensagem individual para participantes de outros grupos (nem pelo chip nem
   pelo número pessoal): risco de banimento e LGPD. Crescer por convite de quem já está no
