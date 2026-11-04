@@ -88,10 +88,16 @@ CHAMADAS_PADRAO = [
 
 CONFIG_PADRAO = {
     "ativo": True,
-    "horarios": [9, 12, 19],
-    "por_lote": 3,           # produtos por lote (fila + Shopee)
-    "fila_por_lote": 1,      # quantos desses vem da fila de outras lojas
-    "cupons_por_lote": 1,
+    "horarios": [9, 12, 19],  # antigo: o robo agora usa as faixas abaixo
+    # Envio automatico: 1 oferta a cada intervalo_min dentro de cada faixa.
+    "faixas": [{"inicio": "11:30", "fim": "13:30"}, {"inicio": "19:00", "fim": "21:00"}],
+    "intervalo_min": 10,
+    "ml_por_faixa": 5,       # Mercado Livre (e outras lojas coladas na fila)
+    "shopee_por_faixa": 5,
+    "amazon_por_faixa": 2,
+    "por_lote": 3,           # botao "Enviar agora": produtos de uma vez
+    "fila_por_lote": 1,      # botao "Enviar agora": quantos vem da fila
+    "cupons_por_lote": 1,    # cupons no inicio de cada faixa
     "amazon_tag": "",
     "palavras_bloqueadas": PALAVRAS_BLOQUEADAS_PADRAO,
     "categorias": CATEGORIAS_PADRAO,
@@ -165,6 +171,52 @@ def soltar_trava() -> None:
 
 
 # ---------------------------------------------------------------- config
+
+def sequencia_da_faixa(ml: int, shopee: int, amazon: int) -> list:
+    """Ordem das ofertas numa faixa, com as lojas bem misturadas."""
+    cotas = [("Mercado Livre", max(0, ml)), ("Shopee", max(0, shopee)), ("Amazon", max(0, amazon))]
+    total = sum(c for _, c in cotas)
+    saldo = {loja: 0 for loja, _ in cotas}
+    ordem = []
+    for _ in range(total):
+        for loja, cota in cotas:
+            saldo[loja] += cota
+        escolhida = max(cotas, key=lambda c: saldo[c[0]])[0]
+        saldo[escolhida] -= total
+        ordem.append(escolhida)
+    return ordem
+
+
+def _minutos(hora: str) -> int:
+    horas, minutos = str(hora).split(":")
+    return int(horas) * 60 + int(minutos)
+
+
+def vaga_atual(config: dict, agora: datetime) -> dict | None:
+    """A oferta que deve sair agora, ou None se estiver fora das faixas (ou
+    se a faixa ja mandou tudo). So depende do relogio: se um envio falhar, o
+    proximo segue a ordem sem amontoar mensagens."""
+    ordem = sequencia_da_faixa(int(config.get("ml_por_faixa") or 0),
+                               int(config.get("shopee_por_faixa") or 0),
+                               int(config.get("amazon_por_faixa") or 0))
+    intervalo = max(1, int(config.get("intervalo_min") or 10))
+    minuto = agora.hour * 60 + agora.minute
+    for numero, faixa in enumerate(config.get("faixas") or []):
+        try:
+            inicio, fim = _minutos(faixa["inicio"]), _minutos(faixa["fim"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if inicio <= minuto < fim:
+            vaga = (minuto - inicio) // intervalo
+            if vaga >= len(ordem):
+                return None
+            return {
+                "loja": ordem[vaga],
+                "primeira": vaga == 0,
+                "marca": f"{agora:%Y-%m-%d} faixa{numero} vaga{vaga}",
+            }
+    return None
+
 
 def ler_config() -> dict:
     salvo = _ler_json(CHAVE_CONFIG, {})

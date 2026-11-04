@@ -1,13 +1,13 @@
 # Tarefa agendada: ofertas do Mercado Livre para a fila do WhatsApp
 
 Roda no notebook da Keiti (app do Claude aberto + Chrome logado no Mercado
-Livre, extensão Claude in Chrome conectada). Coloca 3 ofertas do Mercado Livre
-e 1 da Amazon na fila da página /whatsapp e, de manhã, 1 ou 2 cupons do ML na
-lista de cupons; os lotes do robô mandam no grupo.
+Livre, extensão Claude in Chrome conectada). Roda às 10h30 e às 18h30. Coloca
+5 ofertas do Mercado Livre e 2 da Amazon na fila da página /whatsapp e, de
+manhã, 1 ou 2 cupons do ML na lista de cupons; o robô manda 1 por vez no grupo.
 
-**São exatamente 4 ofertas por execução:** cada lote leva 2 da fila, então elas
-saem nos 2 lotes seguintes, ainda em promoção. Colocar mais faria a oferta
-esperar na fila e vencer.
+**São exatamente 7 ofertas por execução:** elas saem na faixa de horário
+seguinte (11h30 ou 19h), ainda em promoção. Colocar mais faria a oferta esperar
+na fila e vencer. O Mercado Livre é o foco porque paga melhor que as outras lojas.
 
 Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
 
@@ -30,14 +30,18 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      no topo com
      `(document.body.innerText.replace(/\s+/g, ' ').match(/GANHOS( EXTRAS)? ?(\d+)%/) || [])[0]`.
 
-2. **Escolher 3 do Mercado Livre**, sendo:
-   - **2 de comissão maior:** da maior para a menor, `ganho_extra` ou
-     `ganho` >= 16%;
-   - **1 do Ofertaço:** coisas do dia a dia (mercado, limpeza, casa, beleza,
-     pet), com comissão de pelo menos 8%. Pular `relampago: true`, porque o
-     relógio pode acabar antes de o lote sair. `OFERTA DO DIA` só na execução
-     das 8h, com `"vale_ate_hora": "12:00"` e `"prioridade": true` no arquivo.
-     `BLACK FRIDAY` e `OFERTA IMPERDÍVEL` valem em qualquer horário.
+2. **Escolher 5 do Mercado Livre**, sendo:
+   - **3 do painel de afiliados:** entre produtos parecidos, fica o de comissão
+     maior, mas um produto bom com comissão menor também pode entrar;
+   - **2 do Ofertaço:** coisas do dia a dia (mercado, limpeza, casa, beleza,
+     pet). Pular `relampago: true`, porque o relógio pode acabar antes de a
+     oferta sair. `OFERTA DO DIA` só na execução das 10h30, com
+     `"vale_ate_hora": "12:00"` e `"prioridade": true` no arquivo. `BLACK
+     FRIDAY` e `OFERTA IMPERDÍVEL` valem em qualquer horário.
+
+   Se não houver 5 que passem nas regras, colocar menos em vez de baixar o
+   critério: a Shopee completa. Comissão mínima de 8%.
+
 
    Todos precisam passar nestas regras:
    - desconto real de pelo menos 30% (campo `desconto`, já calculado sobre o
@@ -107,7 +111,7 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    (`⚠️ Está esgotando!` só quando o `aviso` disser isso; `validade` vem
    pronta do extrair_cupons.js.)
 
-   **Amazon (1 por execução):**
+   **Amazon (2 por execução):**
    - Abrir `https://www.amazon.com.br/deals` (não precisa de login) e rodar
      `tarefa_ml\extrair_ofertas_amazon.js` (ele rola a página sozinho).
    - Escolher pelo `desconto` (>= 30%), preço até R$ 300 e utilidade para o

@@ -27,11 +27,10 @@ Uso (no notebook, pra testar):
     python robo_whatsapp.py --teste          -> mostra o lote, NAO envia
     python robo_whatsapp.py --listar-grupos  -> mostra os grupos e seus IDs
     python robo_whatsapp.py --agora          -> envia um lote ja (ignora horario)
-    python robo_whatsapp.py                  -> envia se for um dos horarios
+    python robo_whatsapp.py                  -> envia se for hora de uma oferta
 
-No GitHub Actions roda de hora em hora (.github/workflows/robo-whatsapp.yml)
-e so envia nos horarios escolhidos na pagina. Como o GitHub as vezes atrasa,
-se o lote de um horario nao saiu ele ainda e' enviado ate 3h depois.
+No Railway roda a cada 10 minutos e, dentro das faixas da pagina /whatsapp,
+manda 1 oferta por vez, na ordem das lojas (Mercado Livre, Shopee, Amazon).
 
 Variaveis de ambiente / Secrets do GitHub / Environment do Render:
     SHOPEE_APP_ID, SHOPEE_SECRET, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
@@ -63,7 +62,6 @@ VENDAS_MINIMAS = 100
 NOTA_MINIMA = 4.5      # estrelas (so vale quando a Shopee informa)
 DESCONTO_MINIMO = 20   # % pra entrar na lista de "maiores descontos"
 # Se o GitHub atrasar, o lote ainda sai ate esse tanto de horas depois do horario.
-ATRASO_MAXIMO_HORAS = 3
 CATEGORIAS_POR_LOTE = 3
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 CAMPOS_EXTRAS = "shopId productLink ratingStar"
@@ -468,15 +466,25 @@ def mensagem_cupom(cupom: dict, estilo: Estilo | None = None) -> str:
 
 # ================================================================ montar o lote
 
-def montar_lote(config: dict, gerar_links: bool = True) -> list:
+def _loja_da_vaga(item: dict, loja: str) -> bool:
+    """A vaga da Amazon pega a Amazon; a do Mercado Livre pega ele e as outras
+    lojas coladas na fila; a da Shopee nao usa a fila."""
+    if loja == "Shopee":
+        return False
+    return (item.get("loja") == "Amazon") == (loja == "Amazon")
+
+
+def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
+                com_cupom: bool = True) -> list:
     """Devolve a lista de mensagens do proximo lote, cada uma como
-    {tipo, titulo, texto, imagem, link, ref}. Nao envia nada."""
+    {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "loja", monta
+    1 oferta so daquela loja; se ela nao tiver oferta, usa a de outra."""
     lote = []
     hoje = dados.agora_brasil().strftime("%Y-%m-%d")
     estilo = Estilo(config)
 
     # 1) Cupom: o mais antigo que ainda nao saiu hoje.
-    qtd_cupons = int(config.get("cupons_por_lote") or 0)
+    qtd_cupons = int(config.get("cupons_por_lote") or 0) if com_cupom else 0
     if qtd_cupons > 0:
         cupons = [c for c in dados.listar_cupons()
                   if dados.cupom_valido(c, hoje) and c.get("ultimo_envio") != hoje]
@@ -488,10 +496,14 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
                 "ref": c.get("id"), "codigo": c.get("codigo", ""),
             })
 
-    por_lote = max(0, int(config.get("por_lote") or 0))
+    por_lote = 1 if loja else max(0, int(config.get("por_lote") or 0))
 
     # 2) Fila de outras lojas: sem as vencidas e com as prioritarias na frente.
-    da_fila = dados.fila_para_envio()[: min(por_lote, int(config.get("fila_por_lote") or 0))]
+    na_fila = dados.fila_para_envio()
+    if loja:
+        da_fila = [i for i in na_fila if _loja_da_vaga(i, loja)][:1]
+    else:
+        da_fila = na_fila[: min(por_lote, int(config.get("fila_por_lote") or 0))]
 
     # 3) Completa com Shopee.
     faltam = por_lote - len(da_fila)
@@ -499,6 +511,8 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
     if faltam > 0:
         historico = dados.ler_historico()
         da_shopee = escolher_ofertas_shopee(faltam, dados.ids_recentes(historico), config)
+    if loja and not da_fila and not da_shopee:
+        da_fila = na_fila[:1]  # a Shopee nao trouxe nada: vai o que tiver na fila
 
     # Nome curto pelo Gemini: uma chamada so para o lote todo (se falhar,
     # ficam os nomes originais). O titulo do historico usa o nome original,
@@ -629,7 +643,7 @@ def _depois_de_enviar(msg: dict) -> None:
         dados.salvar_historico(historico)
 
 
-def enviar_lote(origem: str = "automatico") -> int:
+def enviar_lote(origem: str = "automatico", loja: str = "", com_cupom: bool = True) -> int:
     """Monta e envia um lote. Devolve quantas mensagens foram enviadas."""
     faltando = whatsapp_configurado()
     if faltando:
@@ -645,7 +659,7 @@ def enviar_lote(origem: str = "automatico") -> int:
             print(f"Oferta vencida, nao enviada: {vencida.get('nome')}")
             dados.registrar("aviso", f"Oferta vencida, não enviada: {vencida.get('nome')}",
                             vencida.get("link", ""), ok=False, origem=origem)
-        lote = montar_lote(config)
+        lote = montar_lote(config, loja=loja, com_cupom=com_cupom)
         if not lote:
             print("Nada para enviar agora (sem ofertas novas, fila e cupons vazios).")
             dados.registrar("aviso", "Lote vazio: nenhuma oferta nova encontrada",
@@ -685,37 +699,28 @@ def enviar_lote(origem: str = "automatico") -> int:
 # ================================================================ principal
 
 def rodar_agendado() -> None:
-    """Chamado de hora em hora pelo GitHub Actions: so envia se o robo
-    estiver ligado, se for um dos horarios e se esse horario ainda nao
-    tiver saido hoje."""
+    """Chamado a cada 10 minutos pelo Railway: dentro de uma faixa de horario,
+    manda a oferta da vez, uma vez so."""
     config = dados.ler_config()
     agora = dados.agora_brasil()
     if not config.get("ativo"):
         print("Robo pausado na pagina /whatsapp. Nada enviado.")
         return
-    horarios = sorted(int(h) for h in config.get("horarios") or [])
-    # O GitHub as vezes atrasa horas pra rodar. Por isso olhamos o ultimo
-    # horario que ja passou hoje: se o lote dele ainda nao saiu (e o atraso
-    # e' de no maximo ATRASO_MAXIMO_HORAS), manda agora. Se varios horarios
-    # foram perdidos, manda so 1 lote, pra nao encher o grupo de uma vez.
-    passados = [h for h in horarios if h <= agora.hour]
-    if not passados or agora.hour - passados[-1] > ATRASO_MAXIMO_HORAS:
-        print(f"Agora sao {agora:%H:%M} (Brasilia). Horarios de envio: {horarios}. Nada a fazer.")
+    vaga = dados.vaga_atual(config, agora)
+    if not vaga:
+        print(f"Agora sao {agora:%H:%M} (Brasilia): fora das faixas {config.get('faixas')}. Nada a fazer.")
         return
-    hora_do_lote = passados[-1]
-    marca = agora.strftime("%Y-%m-%d ") + f"{hora_do_lote:02d}"
-    if dados.ler_ultimo_lote() == marca:
-        print(f"O lote das {hora_do_lote}h ja foi enviado.")
+    if dados.ler_ultimo_lote() == vaga["marca"]:
+        print(f"A oferta das {agora:%H:%M} ja foi enviada.")
         return
-    if hora_do_lote != agora.hour:
-        print(f"O lote das {hora_do_lote}h nao tinha saido (o GitHub atrasou). Enviando agora.")
     faltando = whatsapp_configurado()
     if faltando:
         print("WhatsApp ainda nao configurado (falta: " + ", ".join(faltando) + "). Nada enviado.")
         _aviso_actions("warning", "WhatsApp nao configurado", "Falta: " + ", ".join(faltando))
         return
-    dados.marcar_ultimo_lote(marca)
-    enviados = enviar_lote("automatico")
+    dados.marcar_ultimo_lote(vaga["marca"])
+    # Os cupons saem so no comeco de cada faixa.
+    enviados = enviar_lote("automatico", vaga["loja"], com_cupom=vaga["primeira"])
     if enviados == 0:
         _aviso_actions("warning", "Lote vazio", "Nenhuma mensagem foi enviada neste horario.")
 

@@ -1,7 +1,7 @@
-# Robo do WhatsApp no Railway: o Railway liga o robo de hora em hora, ele
-# confere se e' um dos horarios da pagina /whatsapp e desliga. O horario do
-# cron e' UTC, mas "de hora em hora" nao muda com o fuso.
+# Robo do WhatsApp no Railway: o Railway liga o robo a cada 10 minutos, ele
+# confere se esta numa faixa da pagina /whatsapp e desliga. O cron e' UTC, mas
+# "a cada 10 minutos" nao muda com o fuso. Vale o que estiver em Settings.
 [deploy]
 startCommand = "python robo_whatsapp.py"
-cronSchedule = "2 * * * *"
+cronSchedule = "*/10 * * * *"
 restartPolicyType = "NEVER"

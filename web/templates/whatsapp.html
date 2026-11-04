@@ -28,11 +28,11 @@
                 <span class="selo selo-cinza">⏸ PAUSADO</span>
                 {% endif %}
                 <p class="linhas-info" style="margin:8px 0 0">
-                    {% if config.horarios %}
-                    Envia às {% for h in config.horarios %}{{ h }}h{% if not loop.last %}, {% endif %}{% endfor %}
-                    · {{ config.por_lote }} oferta{{ 's' if config.por_lote != 1 }} por lote
+                    {% if config.faixas %}
+                    Envia {% for f in config.faixas %}das {{ f.inicio }} às {{ f.fim }}{% if not loop.last %} e {% endif %}{% endfor %}
+                    · 1 oferta a cada {{ config.intervalo_min }} min
                     {% else %}
-                    Nenhum horário marcado nos ajustes.
+                    Nenhuma faixa de horário nos ajustes.
                     {% endif %}
                 </p>
             </div>
@@ -136,8 +136,8 @@
         <summary><strong>🛍️ Fila de ofertas de outras lojas</strong>
             <span class="contador">{{ fila|length }}</span></summary>
         <p class="linhas-info">Cole aqui ofertas do Mercado Livre, Amazon, Shein, Temu...
-            Em cada lote entra{{ 'm' if config.fila_por_lote != 1 }} {{ config.fila_por_lote }}
-            da fila, na ordem abaixo. Depois de enviado, o item sai da fila.</p>
+            Em cada faixa saem {{ config.ml_por_faixa }} do Mercado Livre e outras lojas e
+            {{ config.amazon_por_faixa }} da Amazon, na ordem abaixo. Depois de enviado, o item sai da fila.</p>
 
         <form action="{{ url_for('whatsapp_fila_adicionar') }}" method="post" class="sub-card">
             <input type="url" name="link" placeholder="Link de afiliado do produto (https://...)" required>
@@ -244,23 +244,39 @@
     <details class="card" id="ajustes">
         <summary><strong>⚙️ Ajustes</strong></summary>
         <form action="{{ url_for('whatsapp_ajustes') }}" method="post">
-            <p class="rotulo">Horários de envio (Brasília)</p>
-            <div class="grade-horas">
-                {% for h in horas %}
-                <label class="hora"><input type="checkbox" name="horarios" value="{{ h }}"
-                    {{ 'checked' if h in config.horarios }}><span>{{ h }}h</span></label>
-                {% endfor %}
-            </div>
-            <p class="linhas-info">O envio pode atrasar uns minutos: o GitHub nem sempre roda na hora exata.</p>
-
-            <label class="rotulo">Ofertas por lote
+            <p class="rotulo">Faixas de envio (Brasília)</p>
+            {% set f1 = config.faixas[0] if config.faixas|length > 0 else {} %}
+            {% set f2 = config.faixas[1] if config.faixas|length > 1 else {} %}
+            <label class="rotulo">Faixa 1: início e fim
+                <input type="time" name="faixa1_inicio" value="{{ f1.inicio }}">
+                <input type="time" name="faixa1_fim" value="{{ f1.fim }}">
+            </label>
+            <label class="rotulo">Faixa 2: início e fim
+                <input type="time" name="faixa2_inicio" value="{{ f2.inicio }}">
+                <input type="time" name="faixa2_fim" value="{{ f2.fim }}">
+            </label>
+            <label class="rotulo">Minutos entre uma oferta e outra (mínimo 10)
+                <input type="number" name="intervalo_min" min="10" max="120" value="{{ config.intervalo_min }}">
+            </label>
+            <label class="rotulo">Mercado Livre por faixa (inclui outras lojas da fila)
+                <input type="number" name="ml_por_faixa" min="0" max="30" value="{{ config.ml_por_faixa }}">
+            </label>
+            <label class="rotulo">Shopee por faixa
+                <input type="number" name="shopee_por_faixa" min="0" max="30" value="{{ config.shopee_por_faixa }}">
+            </label>
+            <label class="rotulo">Amazon por faixa
+                <input type="number" name="amazon_por_faixa" min="0" max="30" value="{{ config.amazon_por_faixa }}">
+            </label>
+            <p class="linhas-info">A quantidade precisa caber na faixa: 12 ofertas a cada 10 minutos
+                levam 2 horas. O que passar do fim da faixa não sai.</p>
+            <label class="rotulo">Cupons no começo de cada faixa
+                <input type="number" name="cupons_por_lote" min="0" max="3" value="{{ config.cupons_por_lote }}">
+            </label>
+            <label class="rotulo">Botão "Enviar agora": ofertas de uma vez
                 <input type="number" name="por_lote" min="1" max="10" value="{{ config.por_lote }}">
             </label>
-            <label class="rotulo">Quantas dessas vêm da fila de outras lojas
+            <label class="rotulo">Botão "Enviar agora": quantas vêm da fila
                 <input type="number" name="fila_por_lote" min="0" max="10" value="{{ config.fila_por_lote }}">
-            </label>
-            <label class="rotulo">Cupons por lote
-                <input type="number" name="cupons_por_lote" min="0" max="3" value="{{ config.cupons_por_lote }}">
             </label>
             <label class="rotulo">Tag de afiliada da Amazon (termina em -20)
                 <input type="text" name="amazon_tag" placeholder="ex: clubedoquero-20" value="{{ config.amazon_tag }}">

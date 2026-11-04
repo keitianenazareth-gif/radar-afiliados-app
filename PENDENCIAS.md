@@ -5,7 +5,9 @@ no claude.ai (doc `claude/whatsapp-robo-status.md`). Ao concluir um item,
 marque aqui com [x] e faça commit.
 
 ## Situação atual
-- Robô do WhatsApp (`robo_whatsapp.py`): horários 9, 12, 15, 18, 20 e 22h (mudado em 03/11).
+- Robô do WhatsApp (`robo_whatsapp.py`): desde 04/11, 1 oferta a cada 10 min nas faixas 11h30-13h30
+  e 19h-21h: 5 Mercado Livre, 5 Shopee e 2 Amazon por faixa (24 por dia, editável em /whatsapp).
+  Testar por 1 semana: olhar avisos do WhatsApp e gente saindo do grupo.
   Links da Shopee levam subId da hora (ex.: `h20`): em 2-3 semanas, ver no relatório da
   Shopee quais horários vendem mais e ajustar.
   Commit 500f8ba (02/11): não repete produto parecido (código, foto e nome) e,
