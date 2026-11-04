@@ -31,7 +31,8 @@ import produto_manual
 from shopee import buscar_produtos, numero
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024  # 12MB - foto enviada do celular
+# 100MB: a Keiti sobe pela Galeria os videos que grava no celular.
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 # So pra mensagens de status (flash) apos postar no Instagram pela Galeria -
 # nao guarda nada sensivel, nao tem sessao/login por cookie (o login e'
 # HTTP Basic, refeito a cada request).
@@ -515,6 +516,17 @@ def galeria_remover_destino():
 
     galeria.remover_destino(request.form.get("nome", ""))
     return redirect(url_for("galeria_pagina"))
+
+
+@app.route("/api/instagram/status")
+def instagram_status():
+    """So leitura: mostra qual conta o token publica. Nao posta nada."""
+    from web.instagram_publish import InstagramPublishError, status_conta
+
+    try:
+        return jsonify({"ok": True, **status_conta()})
+    except InstagramPublishError as erro:
+        return jsonify({"ok": False, "erro": str(erro)})
 
 
 @app.route("/galeria/postar-instagram/<item_id>", methods=["POST"])

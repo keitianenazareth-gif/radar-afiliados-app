@@ -50,6 +50,29 @@ def _checar_credenciais():
         )
 
 
+def status_conta() -> dict:
+    """So leitura: confere se o token funciona e qual conta ele publica
+    (nao posta nada). A mensagem de erro vem do JSON da Meta, sem a URL,
+    pra nao mostrar o token."""
+    _checar_credenciais()
+    resp = requests.get(
+        f"{BASE_URL}/{INSTAGRAM_USER_ID}",
+        params={
+            "fields": "username,followers_count,media_count",
+            "access_token": INSTAGRAM_ACCESS_TOKEN,
+        },
+        timeout=30,
+    )
+    dados = resp.json()
+    if resp.status_code >= 400:
+        erro = dados.get("error", {})
+        raise InstagramPublishError(
+            f"Meta recusou (HTTP {resp.status_code}, codigo {erro.get('code')}): "
+            f"{erro.get('message', 'sem detalhe')}"
+        )
+    return {campo: dados.get(campo) for campo in ("username", "followers_count", "media_count")}
+
+
 def criar_container_reel(
     video_url: str,
     legenda: str,

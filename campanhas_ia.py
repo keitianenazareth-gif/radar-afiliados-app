@@ -403,11 +403,18 @@ def encurtar_nomes(nomes):
     }
     # Os avisos nunca mostram a mensagem do requests: ela traz a URL com a
     # chave (?key=...) e iria parar no log do GitHub Actions.
-    try:
-        resposta = requests.post(f"{URL_BASE}?key={GEMINI_API_KEY}", json=corpo, timeout=30)
-    except requests.RequestException as erro:
-        print(f"  Aviso: Gemini fora do ar ({type(erro).__name__}); usando os nomes originais.")
-        return nomes
+    import time as _time
+
+    # 503 = Gemini sobrecarregado, costuma passar em poucos segundos.
+    for tentativa in range(3):
+        try:
+            resposta = requests.post(f"{URL_BASE}?key={GEMINI_API_KEY}", json=corpo, timeout=30)
+        except requests.RequestException as erro:
+            print(f"  Aviso: Gemini fora do ar ({type(erro).__name__}); usando os nomes originais.")
+            return nomes
+        if resposta.status_code not in (500, 503):
+            break
+        _time.sleep(5 * (tentativa + 1))
     if resposta.status_code != 200:
         print(f"  Aviso: Gemini recusou (HTTP {resposta.status_code}); usando os nomes originais.")
         return nomes
