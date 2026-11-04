@@ -34,7 +34,10 @@ INSTAGRAM_USER_ID = os.environ.get("INSTAGRAM_USER_ID", "").strip()
 INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
 
 API_VERSION = "v22.0"
-BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
+# Token do "login pelo Instagram" (comeca com IG) so funciona neste endereco;
+# token do login pelo Facebook usa o outro.
+_HOST = "graph.instagram.com" if INSTAGRAM_ACCESS_TOKEN.startswith("IG") else "graph.facebook.com"
+BASE_URL = f"https://{_HOST}/{API_VERSION}"
 
 
 class InstagramPublishError(Exception):
