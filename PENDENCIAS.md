@@ -57,8 +57,12 @@ marque aqui com [x] e faça commit.
       - [x] Mercado Livre (03/11): a tarefa das 8h lê a página Cupons (`tarefa_ml/extrair_cupons.js`)
         e cadastra 1 ou 2 cupons gerais, com link de afiliada de um produto onde o cupom vale.
         O ML não gera link de afiliada da página de cupons nem tem código: a pessoa ativa no app.
-- [ ] 10. Robô do Instagram para ganhar seguidores (começar consertando `robo-automatico.yml`,
-       que falha desde 14/10): postar nos melhores horários, relatório semanal, temas do
+- [ ] 10. Robô do Instagram para ganhar seguidores. Situação em 03/11: o agendamento de
+       `robo-automatico.yml` foi desligado (só roda manual). Fotos animadas e cenas de IA foram
+       reprovadas pela Keiti; o fluxo novo é ela gravar o vídeo, subir na Galeria (/galeria, até
+       100MB) e publicar com a legenda aprovada. Token corrigido (endereço graph.instagram.com) e
+       conferido em /api/instagram/status; falta testar uma publicação real e renovar o token
+       antes de expirar. Voz aprovada: pt-BR-FranciscaNeural. Depois: melhores horários, relatório semanal, temas do
        momento, hashtags, responder comentários/DMs, funil "comenta QUERO" (DM só para quem
        falou primeiro, em até 24h), sugerir collabs. NÃO: seguir/deixar de seguir em massa,
        comentar em perfis alheios, DM para quem nunca falou com a conta.
