@@ -205,7 +205,8 @@ def listar_fila() -> list:
 
 def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
                       imagem: str = "", observacao: str = "",
-                      preco_antigo: str = "") -> dict:
+                      preco_antigo: str = "", vale_ate: float = 0,
+                      vale_ate_texto: str = "", prioridade: bool = False) -> dict:
     item = {
         "id": uuid.uuid4().hex[:8],
         "loja": loja or "Outra",
@@ -216,11 +217,43 @@ def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
         "imagem": imagem.strip(),
         "observacao": observacao.strip(),
         "criado_em": time.time(),
+        "vale_ate": vale_ate,  # hora (epoch) em que a oferta vence; 0 = sem prazo
+        "vale_ate_texto": vale_ate_texto,  # o mesmo prazo, para mostrar na pagina
+        "prioridade": prioridade,  # sai antes das demais (ex.: Oferta do dia)
     }
     fila = listar_fila()
     fila.append(item)
     _gravar_json(CHAVE_FILA, fila)
     return item
+
+
+def item_vencido(item: dict, agora: float | None = None) -> bool:
+    """True se a oferta tem prazo e ele ja passou."""
+    try:
+        prazo = float(item.get("vale_ate") or 0)
+    except (TypeError, ValueError):
+        return False
+    return prazo > 0 and prazo <= (time.time() if agora is None else agora)
+
+
+def ordenar_para_envio(fila: list, agora: float | None = None) -> list:
+    """Tira as vencidas e poe as prioritarias na frente, mantendo a ordem da
+    fila dentro de cada grupo."""
+    validas = [i for i in fila if not item_vencido(i, agora)]
+    return sorted(validas, key=lambda i: not i.get("prioridade"))
+
+
+def fila_para_envio() -> list:
+    return ordenar_para_envio(listar_fila())
+
+
+def limpar_fila_vencida() -> list:
+    """Remove da fila as ofertas vencidas e devolve quais sairam."""
+    fila = listar_fila()
+    vencidas = [i for i in fila if item_vencido(i)]
+    if vencidas:
+        _gravar_json(CHAVE_FILA, [i for i in fila if not item_vencido(i)])
+    return vencidas
 
 
 def produto_repetido(nome: str, cupom: bool = False) -> str:

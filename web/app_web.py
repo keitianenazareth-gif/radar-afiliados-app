@@ -779,8 +779,16 @@ def whatsapp_fila_adicionar():
     if loja == "Amazon":
         link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
 
+    # Prazo vem so da tarefa agendada (fila_ml.py); colado na pagina nao vence.
+    try:
+        vale_ate = float(request.form.get("vale_ate") or 0)
+    except ValueError:
+        vale_ate = 0
     wd.adicionar_na_fila(loja, link, nome, preco, imagem,
-                         request.form.get("observacao", ""), preco_antigo)
+                         request.form.get("observacao", ""), preco_antigo,
+                         vale_ate=vale_ate,
+                         vale_ate_texto=request.form.get("vale_ate_texto", "").strip(),
+                         prioridade=request.form.get("prioridade") == "1")
     return _responder(True, f"✅ Adicionado na fila: {nome[:60]}", "adicionado")
 
 

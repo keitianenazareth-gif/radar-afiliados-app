@@ -46,6 +46,15 @@ marque aqui com [x] e faça commit.
         põe na fila. Precisa do notebook ligado, app do Claude aberto e Chrome logado no ML.
       - [x] Amazon (03/11): mesma tarefa, página de ofertas sem login, tag `2410890e-20` nos
         Ajustes; mensagem sem preço e sem foto (regra do programa de associados).
+      - [x] Leitores corrigidos (04/11): Amazon lê a página de Black Friday (nome vem da foto);
+        ML reconhece "ou R$ X em 8x" e calcula o desconto real. Testados nas páginas reais.
+      - [x] Nova seleção do ML (04/11, pedido da Keiti): 2-3 de comissão maior (filtro Ganhos
+        extras) + 1-2 do Ofertaço (/ofertas; comissão lida na página do produto). Regras em
+        `tarefa_ml/INSTRUCOES.md`. Leitura testada; conferir a primeira execução completa.
+      - [x] Oferta não vence na fila (04/11): 4 ofertas por execução (3 ML + 1 Amazon), 2 da fila
+        por lote, validade de 6h (Oferta do dia até 12h e sai primeiro); vencida é descartada.
+        Conferir o preço na hora do envio ficou de fora: o ML respondeu 403 à página e 401 à API
+        sem login. Se quiser retomar, avaliar a API oficial com token.
       - [ ] Shein: a Keiti precisa entrar na conta da Shein no Chrome do notebook; depois
         explorar o painel br.shein.com/affiliate (gerador de links e cupons).
       - [ ] No notebook: abrir a tarefa em Scheduled e clicar "Run now" uma vez para aprovar

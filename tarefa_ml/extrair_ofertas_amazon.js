@@ -17,10 +17,12 @@
   }
   return Object.entries(porAsin).map(([asin, card]) => {
     const texto = card.innerText.replace(/\s+/g, ' ').trim();
-    const partes = texto.match(/^(.*?) (\d+)% off (.*?) R\$/);
+    // Em algumas paginas (ex.: Black Friday) o card nao traz o nome no texto,
+    // comeca direto em "24% off": nesse caso o nome vem do texto da foto.
+    const partes = texto.match(/^(.*?) ?(\d+)% off ?(.*?) ?R\$/);
     return {
       asin,
-      nome: partes ? partes[1].trim() : '',
+      nome: (partes && partes[1].trim()) || card.querySelector('img')?.alt?.trim() || '',
       desconto: partes ? Number(partes[2]) : 0,
       selo: partes ? partes[3].trim() : '',
       preco: Number(((texto.match(/R\$ ?([\d.]+,\d{2})/) || [])[1] || '0').replace(/\./g, '').replace(',', '.')),

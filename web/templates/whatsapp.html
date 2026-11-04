@@ -163,7 +163,7 @@
             {% if item.imagem %}<img src="{{ item.imagem }}" alt="" loading="lazy">{% endif %}
             <div class="wa-item-info">
                 <strong>{{ loop.index }}. {{ item.nome }}</strong>
-                <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}</span>
+                <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}{% if item.vale_ate_texto %} · ⏰ vale até {{ item.vale_ate_texto }}{% endif %}{% if item.prioridade %} · sai primeiro{% endif %}</span>
                 <a href="{{ item.link }}" target="_blank" rel="noopener" class="link-pequeno">abrir link</a>
             </div>
             <div class="wa-item-acoes">

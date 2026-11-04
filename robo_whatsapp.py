@@ -490,8 +490,8 @@ def montar_lote(config: dict, gerar_links: bool = True) -> list:
 
     por_lote = max(0, int(config.get("por_lote") or 0))
 
-    # 2) Fila de outras lojas, na ordem em que foram coladas.
-    da_fila = dados.listar_fila()[: min(por_lote, int(config.get("fila_por_lote") or 0))]
+    # 2) Fila de outras lojas: sem as vencidas e com as prioritarias na frente.
+    da_fila = dados.fila_para_envio()[: min(por_lote, int(config.get("fila_por_lote") or 0))]
 
     # 3) Completa com Shopee.
     faltam = por_lote - len(da_fila)
@@ -639,6 +639,12 @@ def enviar_lote(origem: str = "automatico") -> int:
 
     try:
         config = dados.ler_config()
+        # Oferta vencida nao vai para o grupo: quem abre o link tem que achar
+        # o preco da mensagem.
+        for vencida in dados.limpar_fila_vencida():
+            print(f"Oferta vencida, nao enviada: {vencida.get('nome')}")
+            dados.registrar("aviso", f"Oferta vencida, não enviada: {vencida.get('nome')}",
+                            vencida.get("link", ""), ok=False, origem=origem)
         lote = montar_lote(config)
         if not lote:
             print("Nada para enviar agora (sem ofertas novas, fila e cupons vazios).")

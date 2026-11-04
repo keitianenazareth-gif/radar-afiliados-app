@@ -7,12 +7,16 @@ gera o link oficial de afiliada (meli.la) e grava um arquivo JSON assim:
       {"link": "https://meli.la/...", "nome": "...", "preco": "R$ 49,90",
        "preco_antigo": "R$ 89,90", "imagem": "https://...jpg",
        "observacao": "⭐ 4,8 | 🛒 +5 mil vendidos"},
+      {"link": "https://meli.la/...", "nome": "Oferta do dia", "preco": "R$ 11,99",
+       "vale_ate_hora": "12:00", "prioridade": true},
       {"tipo": "cupom", "descricao": "30% OFF em Casa",
        "detalhes": "Compra mínima R$ 40 · desconto até R$ 20",
        "validade": "2026-12-31", "link": "https://meli.la/..."}
     ]
 
 Itens com "tipo": "cupom" vao para a lista de cupons (saem uma vez so).
+Toda oferta vale por VALIDADE_HORAS; "vale_ate_hora" troca por um horario de
+hoje. Se vencer antes do lote, o robo descarta em vez de mandar preco velho.
 
 Depois roda:
     .\\.venv312\\Scripts\\python.exe fila_ml.py ofertas_ml.json
@@ -29,6 +33,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -39,6 +44,8 @@ except ImportError:
     WEB_SENHA = os.environ.get("WEB_SENHA", "")
 
 RADAR_URL = os.environ.get("RADAR_URL", "https://radar-afiliados-web.onrender.com")
+VALIDADE_HORAS = 6
+FUSO = timezone(timedelta(hours=-3))  # Brasilia; o Windows nao traz a base de fusos
 CAMPOS = ("link", "nome", "preco", "preco_antigo", "imagem", "observacao")
 CAMPOS_CUPOM = ("link", "descricao", "detalhes", "validade", "como_ativar")
 # Os cupons do Mercado Livre nao tem codigo: a pessoa ativa no app. O link
@@ -73,12 +80,26 @@ def _dados_cupom(cupom: dict) -> dict:
     return dados
 
 
+def prazo_da_oferta(oferta: dict, agora: datetime | None = None) -> datetime:
+    """Quando a oferta vence: o "vale_ate_hora" de hoje ou VALIDADE_HORAS."""
+    agora = agora or datetime.now(FUSO)
+    hora = str(oferta.get("vale_ate_hora") or "").strip()
+    if hora:
+        horas, minutos = hora.split(":")
+        return agora.replace(hour=int(horas), minute=int(minutos), second=0, microsecond=0)
+    return agora + timedelta(hours=VALIDADE_HORAS)
+
+
 def enviar_para_fila(sessao: requests.Session, oferta: dict) -> dict:
     if oferta.get("tipo") == "cupom":
         caminho, dados = "/whatsapp/cupons/adicionar", _dados_cupom(oferta)
     else:
         caminho = "/whatsapp/fila/adicionar"
         dados = {campo: str(oferta.get(campo) or "").strip() for campo in CAMPOS}
+        prazo = prazo_da_oferta(oferta)
+        dados.update({"vale_ate": str(prazo.timestamp()),
+                      "vale_ate_texto": prazo.strftime("%d/%m %H:%M"),
+                      "prioridade": "1" if oferta.get("prioridade") else ""})
     # "loja": "Amazon" para ofertas da Amazon (o site poe a tag e tira o preco).
     dados.update({"loja": oferta.get("loja") or "Mercado Livre", "formato": "json"})
     resposta = sessao.post(f"{RADAR_URL}{caminho}", data=dados, timeout=60)
@@ -116,6 +137,9 @@ def main() -> int:
                                      "link": aplicar_tag_amazon(oferta["link"], tag)}))
             else:
                 print(mensagem_fila({**oferta, "loja": loja}))
+            if oferta.get("tipo") != "cupom":
+                print(f"[vale até {prazo_da_oferta(oferta).strftime('%d/%m %H:%M')}"
+                      f"{', sai primeiro' if oferta.get('prioridade') else ''}]")
             print("-" * 40)
         return 0
 
