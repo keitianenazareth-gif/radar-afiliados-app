@@ -91,6 +91,9 @@ CONFIG_PADRAO = {
     "horarios": [9, 12, 19],  # antigo: o robo agora usa as faixas abaixo
     # Envio automatico: 1 oferta a cada intervalo_min dentro de cada faixa.
     "faixas": [{"inicio": "11:30", "fim": "13:30"}, {"inicio": "19:00", "fim": "21:00"}],
+    # Faixa da manha: so Mercado Livre (Ofertaco), sem cupom e sem trocar de loja.
+    # Com "ml" em 0 ela fica desligada.
+    "faixa_manha": {"inicio": "07:00", "fim": "08:00", "ml": 5},
     "intervalo_min": 10,
     "ml_por_faixa": 5,       # Mercado Livre (e outras lojas coladas na fila)
     "shopee_por_faixa": 5,
@@ -201,6 +204,20 @@ def vaga_atual(config: dict, agora: datetime) -> dict | None:
                                int(config.get("amazon_por_faixa") or 0))
     intervalo = max(1, int(config.get("intervalo_min") or 10))
     minuto = agora.hour * 60 + agora.minute
+    manha = config.get("faixa_manha") or {}
+    try:
+        if _minutos(manha["inicio"]) <= minuto < _minutos(manha["fim"]):
+            vaga = (minuto - _minutos(manha["inicio"])) // intervalo
+            if vaga >= int(manha.get("ml") or 0):
+                return None
+            return {
+                "loja": "Mercado Livre",
+                "primeira": False,
+                "so_loja": True,
+                "marca": f"{agora:%Y-%m-%d} manha vaga{vaga}",
+            }
+    except (KeyError, TypeError, ValueError):
+        pass
     for numero, faixa in enumerate(config.get("faixas") or []):
         try:
             inicio, fim = _minutos(faixa["inicio"]), _minutos(faixa["fim"])

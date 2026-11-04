@@ -31,6 +31,9 @@
                     {% if config.faixas %}
                     Envia {% for f in config.faixas %}das {{ f.inicio }} às {{ f.fim }}{% if not loop.last %} e {% endif %}{% endfor %}
                     · 1 oferta a cada {{ config.intervalo_min }} min
+                    {% if config.faixa_manha and config.faixa_manha.ml %}
+                    · Ofertaço do Mercado Livre das {{ config.faixa_manha.inicio }} às {{ config.faixa_manha.fim }}: {{ config.faixa_manha.ml }} ofertas
+                    {% endif %}
                     {% else %}
                     Nenhuma faixa de horário nos ajustes.
                     {% endif %}
@@ -137,7 +140,7 @@
             <span class="contador">{{ fila|length }}</span></summary>
         <p class="linhas-info">Cole aqui ofertas do Mercado Livre, Amazon, Shein, Temu...
             Em cada faixa saem {{ config.ml_por_faixa }} do Mercado Livre e outras lojas e
-            {{ config.amazon_por_faixa }} da Amazon, na ordem abaixo. Depois de enviado, o item sai da fila.</p>
+            {{ config.amazon_por_faixa }} da Amazon, na ordem abaixo. Na faixa da manhã sai só Mercado Livre. Depois de enviado, o item sai da fila.</p>
 
         <form action="{{ url_for('whatsapp_fila_adicionar') }}" method="post" class="sub-card">
             <input type="url" name="link" placeholder="Link de afiliado do produto (https://...)" required>
@@ -244,6 +247,17 @@
     <details class="card" id="ajustes">
         <summary><strong>⚙️ Ajustes</strong></summary>
         <form action="{{ url_for('whatsapp_ajustes') }}" method="post">
+            {% set fm = config.faixa_manha or {} %}
+            <p class="rotulo">Faixa da manhã (só Ofertaço do Mercado Livre, sem cupom)</p>
+            <label class="rotulo">Manhã: início e fim
+                <input type="time" name="manha_inicio" value="{{ fm.inicio }}">
+                <input type="time" name="manha_fim" value="{{ fm.fim }}">
+            </label>
+            <label class="rotulo">Ofertas na faixa da manhã (0 desliga)
+                <input type="number" name="manha_ml" min="0" max="30" value="{{ fm.ml or 0 }}">
+            </label>
+            <p class="linhas-info">A tarefa do notebook que escolhe essas ofertas roda às 6h30.
+                Mudar o horário aqui não muda o da tarefa.</p>
             <p class="rotulo">Faixas de envio (Brasília)</p>
             {% set f1 = config.faixas[0] if config.faixas|length > 0 else {} %}
             {% set f2 = config.faixas[1] if config.faixas|length > 1 else {} %}

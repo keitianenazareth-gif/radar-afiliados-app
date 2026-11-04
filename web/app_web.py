@@ -872,6 +872,15 @@ def whatsapp_ajustes():
         if inicio and fim and inicio < fim:
             faixas.append({"inicio": inicio, "fim": fim})
 
+    # Faixa da manha: horario invalido ou quantidade 0 deixam ela desligada.
+    manha_inicio, manha_fim = _hora("manha_inicio"), _hora("manha_fim")
+    manha_ok = manha_inicio and manha_fim and manha_inicio < manha_fim
+    faixa_manha = {
+        "inicio": manha_inicio if manha_ok else "",
+        "fim": manha_fim if manha_ok else "",
+        "ml": _inteiro(request.form.get("manha_ml"), 0, 0, 30) if manha_ok else 0,
+    }
+
     por_lote = _inteiro(request.form.get("por_lote"), 3, 1, 10)
 
     def _linhas(campo):
@@ -883,6 +892,7 @@ def whatsapp_ajustes():
 
     wd.salvar_config({
         "faixas": faixas,
+        "faixa_manha": faixa_manha,
         "intervalo_min": _inteiro(request.form.get("intervalo_min"), 10, 10, 120),
         "ml_por_faixa": _inteiro(request.form.get("ml_por_faixa"), 5, 0, 30),
         "shopee_por_faixa": _inteiro(request.form.get("shopee_por_faixa"), 5, 0, 30),

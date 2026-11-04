@@ -1,13 +1,21 @@
 # Tarefa agendada: ofertas do Mercado Livre para a fila do WhatsApp
 
 Roda no notebook da Keiti (app do Claude aberto + Chrome logado no Mercado
-Livre, extensão Claude in Chrome conectada). Roda às 10h30 e às 18h30. Coloca
-5 ofertas do Mercado Livre e 2 da Amazon na fila da página /whatsapp e, de
-manhã, 1 ou 2 cupons do ML na lista de cupons; o robô manda 1 por vez no grupo.
+Livre, extensão Claude in Chrome conectada). Roda às 6h30, 10h30 e 18h30 e
+coloca ofertas na fila da página /whatsapp; o robô manda 1 por vez no grupo.
 
-**São exatamente 7 ofertas por execução:** elas saem na faixa de horário
-seguinte (11h30 ou 19h), ainda em promoção. Colocar mais faria a oferta esperar
-na fila e vencer. O Mercado Livre é o foco porque paga melhor que as outras lojas.
+**O que colocar depende do horário da execução:**
+
+| Execução | Mercado Livre | Amazon | Cupons | Saem no grupo |
+|---|---|---|---|---|
+| Antes das 9h (6h30) | 5 do Ofertaço | nenhuma | nenhum | 7h às 7h50 |
+| Das 9h às 16h (10h30) | 5 do painel | 2 | 1 ou 2 | a partir das 11h30 |
+| Depois das 16h (18h30) | 3 do painel + 2 do Ofertaço | 2 | nenhum | a partir das 19h |
+
+Colocar mais que isso faria a oferta esperar na fila e vencer. O Mercado Livre
+é o foco porque paga melhor que as outras lojas. Na execução das 6h30, pular o
+painel, a Amazon e os cupons: só o Ofertaço sai de manhã, para o pessoal ter
+tempo de entrar e escolher.
 
 Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
 
@@ -30,17 +38,18 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      no topo com
      `(document.body.innerText.replace(/\s+/g, ' ').match(/GANHOS( EXTRAS)? ?(\d+)%/) || [])[0]`.
 
-2. **Escolher 5 do Mercado Livre**, sendo:
-   - **3 do painel de afiliados:** entre produtos parecidos, fica o de comissão
+2. **Escolher 5 do Mercado Livre**, na divisão da tabela acima:
+   - **Do painel de afiliados:** entre produtos parecidos, fica o de comissão
      maior, mas um produto bom com comissão menor também pode entrar;
-   - **2 do Ofertaço:** coisas do dia a dia (mercado, limpeza, casa, beleza,
+   - **Do Ofertaço:** coisas do dia a dia (mercado, limpeza, casa, beleza,
      pet). Pular `relampago: true`, porque o relógio pode acabar antes de a
-     oferta sair. `OFERTA DO DIA` só na execução das 10h30, com
+     oferta sair. `OFERTA DO DIA` só na execução das 6h30, com
      `"vale_ate_hora": "12:00"` e `"prioridade": true` no arquivo. `BLACK
      FRIDAY` e `OFERTA IMPERDÍVEL` valem em qualquer horário.
 
    Se não houver 5 que passem nas regras, colocar menos em vez de baixar o
-   critério: a Shopee completa. Comissão mínima de 8%.
+   critério: às 10h30 e às 18h30 a Shopee completa; às 6h30 sai menos oferta de
+   manhã. Comissão mínima de 8%.
 
 
    Todos precisam passar nestas regras:
@@ -85,7 +94,7 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      sair, o robô descarta. Só escrever `vale_ate_hora` e `prioridade` na
      `OFERTA DO DIA`.
 
-   **Cupons (só na execução da manhã, antes das 12h):**
+   **Cupons (só na execução das 10h30):**
    - Abrir `https://www.mercadolivre.com.br/cupons` e rodar
      `tarefa_ml\extrair_cupons.js`. NÃO clicar em "Aplicar" nem em nada da
      página (isso mexe na conta da Keiti).
@@ -111,7 +120,7 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    (`⚠️ Está esgotando!` só quando o `aviso` disser isso; `validade` vem
    pronta do extrair_cupons.js.)
 
-   **Amazon (2 por execução):**
+   **Amazon (2 por execução, menos na das 6h30):**
    - Abrir `https://www.amazon.com.br/deals` (não precisa de login) e rodar
      `tarefa_ml\extrair_ofertas_amazon.js` (ele rola a página sozinho).
    - Escolher pelo `desconto` (>= 30%), preço até R$ 300 e utilidade para o

@@ -6,7 +6,9 @@ marque aqui com [x] e faça commit.
 
 ## Situação atual
 - Robô do WhatsApp (`robo_whatsapp.py`): desde 04/11, 1 oferta a cada 10 min nas faixas 11h30-13h30
-  e 19h-21h: 5 Mercado Livre, 5 Shopee e 2 Amazon por faixa (24 por dia, editável em /whatsapp).
+  e 19h-21h: 5 Mercado Livre, 5 Shopee e 2 Amazon por faixa. Desde 05/11, também 5 do Ofertaço
+  do ML às 7h, escolhidas pela tarefa das 6h30 (29 por dia, editável em /whatsapp).
+  Conferir nos primeiros dias se a Oferta do dia ainda vale às 7h e se o notebook estava ligado.
   Testar por 1 semana: olhar avisos do WhatsApp e gente saindo do grupo.
   Links da Shopee levam subId da hora (ex.: `h20`): em 2-3 semanas, ver no relatório da
   Shopee quais horários vendem mais e ajustar.
