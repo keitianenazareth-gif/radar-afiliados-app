@@ -60,7 +60,9 @@ VARIAVEIS_WHATSAPP = ("WHATSAPP_API_URL", "WHATSAPP_API_KEY", "WHATSAPP_INSTANCI
 # Filtro de qualidade minima pra nao mandar produto ruim no grupo.
 VENDAS_MINIMAS = 100
 NOTA_MINIMA = 4.5      # estrelas (so vale quando a Shopee informa)
-DESCONTO_MINIMO = 20   # % pra entrar na lista de "maiores descontos"
+DESCONTO_MINIMO = 30   # % (o mesmo do Mercado Livre e da Amazon)
+PRECO_MAXIMO = 100     # R$ (o grupo compra mais coisa barata)
+PRECO_MINIMO = 5       # R$ (abaixo disso costuma ser so a variacao mais barata do anuncio)
 # Se o GitHub atrasar, o lote ainda sai ate esse tanto de horas depois do horario.
 CATEGORIAS_POR_LOTE = 3
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
@@ -140,6 +142,10 @@ def _passa_no_filtro(p: dict, palavras_bloqueadas: list) -> bool:
         return False
     if numero(p.get("sales")) < VENDAS_MINIMAS:
         return False
+    if numero(p.get("priceDiscountRate")) < DESCONTO_MINIMO:
+        return False
+    if not PRECO_MINIMO <= numero(p.get("priceMin")) <= PRECO_MAXIMO:
+        return False
     nota = numero(p.get("ratingStar"))
     if nota and nota < NOTA_MINIMA:
         return False
@@ -153,14 +159,8 @@ def _passa_no_filtro(p: dict, palavras_bloqueadas: list) -> bool:
 # diferente. Pra nao mandar "a mesma garrafinha" duas vezes, comparamos
 # tambem a FOTO e o NOME (palavras principais).
 
-_PALAVRAS_IGNORADAS = {
-    "para", "com", "sem", "kit", "pcs", "pecas", "peca", "unidade", "unidades",
-    "original", "novo", "nova", "promocao", "oferta", "envio", "imediato",
-    "pronta", "entrega", "frete", "gratis", "atacado", "cor", "cores", "tam",
-    "tamanho", "unissex", "feminino", "feminina", "masculino", "masculina",
-    "das", "dos", "uma", "por", "que", "the", "and", "for",
-}
-SEMELHANCA_MINIMA = 0.6
+palavras_do_nome = dados.palavras_do_nome
+nome_parecido = dados.nome_parecido
 
 
 def chave_foto(url: str) -> str:
@@ -170,37 +170,28 @@ def chave_foto(url: str) -> str:
     return f"img:{fim}" if len(fim) >= 8 else ""
 
 
-def palavras_do_nome(nome: str) -> frozenset:
-    texto = re.sub(r"[^a-z0-9 ]", " ", dados.normalizar(nome))
-    palavras = [w for w in texto.split()
-                if len(w) >= 3 and not w.isdigit() and w not in _PALAVRAS_IGNORADAS]
-    return frozenset(palavras[:8])
-
-
 def chave_nome(nome: str) -> str:
     palavras = palavras_do_nome(nome)
     return "nome:" + " ".join(sorted(palavras)) if palavras else ""
-
-
-def nome_parecido(palavras: frozenset, recentes: list) -> bool:
-    if len(palavras) < 2:
-        return False
-    for outras in recentes:
-        if not outras:
-            continue
-        iguais = len(palavras & outras)
-        if iguais / len(palavras | outras) >= SEMELHANCA_MINIMA:
-            return True
-    return False
 
 
 def nomes_recentes(usados: set) -> list:
     return [frozenset(k[5:].split()) for k in usados if k.startswith("nome:")]
 
 
+def _proxima_lista(nomes: list) -> int:
+    """Qual lista usar agora: a seguinte a da ultima oferta da Shopee enviada.
+    Como sai 1 oferta por vez, sem isso a primeira lista ganharia sempre."""
+    for registro in dados.ler_log():
+        achou = re.match(r"Shopee \((.+?)\):", str(registro.get("titulo") or ""))
+        if achou and registro.get("ok") and achou.group(1) in nomes:
+            return (nomes.index(achou.group(1)) + 1) % len(nomes)
+    return 0
+
+
 def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> list:
     """Busca em categorias e paginas variadas e mistura as 3 listas
-    (uma de cada vez) ate completar a quantidade."""
+    (uma de cada vez, em rodizio) ate completar a quantidade."""
     if quantidade <= 0:
         return []
     bloqueadas = config.get("palavras_bloqueadas") or []
@@ -219,8 +210,7 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
     vendidos = [p for p in _juntar(buscas[2]) if _passa_no_filtro(p, bloqueadas)]
     comissao = [p for p in _juntar(buscas[5]) if _passa_no_filtro(p, bloqueadas)]
     baratos = [p for p in _juntar(buscas[4]) if _passa_no_filtro(p, bloqueadas)]
-    descontos = [p for p in _juntar([vendidos, comissao, baratos])
-                 if numero(p.get("priceDiscountRate")) >= DESCONTO_MINIMO]
+    descontos = _juntar([vendidos, comissao, baratos])
 
     vendidos.sort(key=lambda p: numero(p.get("sales")), reverse=True)
     comissao.sort(key=lambda p: numero(p.get("commission")), reverse=True)
@@ -230,9 +220,13 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
         ("maior comissão", comissao),
         ("maiores descontos", descontos),
     ]
+    inicio = _proxima_lista([nome for nome, _ in filas])
+    filas = filas[inicio:] + filas[:inicio]
 
     escolhidos, usados = [], set(ja_usados)
     nomes_usados = nomes_recentes(usados)
+    # Nada do mesmo tipo de algo que ja saiu hoje ou que esta na fila.
+    tipos_usados = dados.tipos_de_hoje() | dados.tipos_na_fila()
     pulados = 0
     while len(escolhidos) < quantidade and any(f for _, f in filas):
         for nome, fila in filas:
@@ -243,7 +237,9 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
                     continue
                 foto = chave_foto(p.get("imageUrl"))
                 palavras = palavras_do_nome(p.get("productName", ""))
-                if (foto and foto in usados) or nome_parecido(palavras, nomes_usados):
+                tipo = dados.tipo_do_produto(p.get("productName", ""))
+                if ((foto and foto in usados) or nome_parecido(palavras, nomes_usados)
+                        or tipo in tipos_usados):
                     usados.add(item_id)
                     pulados += 1
                     continue
@@ -251,6 +247,7 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
                 if foto:
                     usados.add(foto)
                 nomes_usados.append(palavras)
+                tipos_usados.add(tipo)
                 p["_lista"] = nome
                 escolhidos.append(p)
                 break
@@ -501,6 +498,10 @@ def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
 
     # 2) Fila de outras lojas: sem as vencidas e com as prioritarias na frente.
     na_fila = dados.fila_para_envio()
+    # Do mesmo tipo de algo que ja saiu hoje fica de fora (e vence, se tiver prazo).
+    tipos_hoje = dados.tipos_de_hoje()
+    na_fila = [i for i in na_fila
+               if dados.tipo_do_produto(str(i.get("nome") or "")) not in tipos_hoje]
     if so_loja:
         da_fila = [i for i in na_fila if i.get("loja") == loja][:1]
     elif loja:

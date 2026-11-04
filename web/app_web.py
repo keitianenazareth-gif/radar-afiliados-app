@@ -776,6 +776,11 @@ def whatsapp_fila_adicionar():
     if repetido == "enviado" and em_json:
         return _responder(False, f"Esse produto saiu há pouco no grupo: {nome[:60]}",
                           "repetido")
+    if em_json:
+        tipo = wd.tipo_repetido(nome)
+        if tipo:
+            return _responder(False, f"Já tem produto desse tipo hoje ({tipo}): {nome[:60]}",
+                              "repetido")
 
     if loja == "Amazon":
         link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))

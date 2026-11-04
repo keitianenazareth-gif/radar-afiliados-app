@@ -59,12 +59,22 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    - preço até R$ 300, preferindo até R$ 100 (o grupo compra mais coisa barata);
    - teste da amiga: seria útil e fácil de explicar para uma amiga? Preferir
      casa, cozinha, limpeza, beleza, moda e infantil;
-   - variar categorias (não mandar 3 creatinas; no máximo 1 suplemento e 1
-     ferramenta por execução);
-   - EVITAR: games/consoles, gift cards, celulares/iPhone, eletrodoméstico
-     caro, produto adulto, armas, remédio, material hospitalar, hormônios,
-     bebida alcoólica, cigarro/vape, peças de carro/moto e equipamento
-     profissional.
+   - variar categorias: nunca 2 produtos do mesmo tipo no mesmo dia, mesmo de
+     marcas ou lojas diferentes (o site recusa; nesse caso, trocar por outro que
+     passe nas regras);
+   - NÃO ESCOLHER, mesmo com comissão alta: suplementos (creatina, whey,
+     pré-treino), ferramentas (parafusadeira, furadeira), games/consoles, gift
+     cards, celulares/iPhone, eletrodoméstico caro, produto adulto, armas,
+     remédio, material hospitalar, hormônios, bebida alcoólica, cigarro/vape,
+     peças de carro/moto e equipamento profissional.
+
+   **Exemplos para calibrar.** Na dúvida, não colocar: comissão alta não
+   compensa produto sem interesse para o grupo. Atualizar esta lista quando a
+   Keiti aprovar ou reprovar um produto.
+   - Combina com o grupo: ração de gato em kit, potes de vidro para marmita,
+     detergente em kit, óleo de cabelo de marca conhecida.
+   - Não combina: creatina, parafusadeira profissional, palmilha ortopédica,
+     pasta sanfonada de escritório, haste de chenille (limpador de cachimbo).
 
 3. **Gerar os links oficiais.** Abrir
    `https://www.mercadolivre.com.br/afiliados/linkbuilder`, colar os

@@ -41,17 +41,17 @@ MAX_LOG = 60
 LOJAS = ["Mercado Livre", "Amazon", "Shopee", "Shein", "Temu", "Magalu", "Outra"]
 
 CATEGORIAS_PADRAO = [
-    "", "casa", "cozinha", "beleza", "maquiagem", "skincare", "moda feminina",
-    "roupa fitness", "academia", "pet", "infantil", "brinquedo", "eletronicos",
-    "celular acessorios", "organizacao", "decoracao", "cama mesa banho",
-    "limpeza", "ferramentas", "papelaria", "moda masculina", "calcados",
-    "bolsas", "relogio", "viagem", "carro acessorios",
+    "casa", "cozinha", "beleza", "maquiagem", "skincare", "moda feminina",
+    "pet", "infantil", "organizacao", "cama mesa banho", "limpeza",
 ]
 
 PALAVRAS_BLOQUEADAS_PADRAO = [
     "suplemento", "emagrec", "insulina", "diabete", "remedio", "medicamento",
     "capsula", "cha seca", "queima gordura", "termogenico", "detox",
     "sexual", "erotic", "faca tatica", "cigarro", "vape",
+    "creatina", "whey", "pre treino", "pre-treino", "parafusadeira", "furadeira",
+    "esmerilhadeira", "chenille", "cachimbo", "palmilha", "pasta sanfonada",
+    "calcinha", "tanga", "apito",
 ]
 
 
@@ -325,8 +325,90 @@ def limpar_fila_vencida() -> list:
     return vencidas
 
 
+# ---------------------------------------------------------------- produto parecido
+# O mesmo produto aparece com nomes um pouco diferentes ("1kg" e "x 1kg"), em
+# varias lojas. Por isso comparamos as palavras principais do nome.
+
+_PALAVRAS_IGNORADAS = {
+    "para", "com", "sem", "kit", "pcs", "pecas", "peca", "unidade", "unidades",
+    "original", "novo", "nova", "promocao", "oferta", "envio", "imediato",
+    "pronta", "entrega", "frete", "gratis", "atacado", "cor", "cores", "tam",
+    "tamanho", "unissex", "feminino", "feminina", "masculino", "masculina",
+    "das", "dos", "uma", "por", "que", "the", "and", "for",
+}
+SEMELHANCA_MINIMA = 0.6
+# Palavras que abrem o nome, mas nao dizem o que o produto e'.
+_NAO_DIZEM_O_TIPO = {"mini", "jogo", "conjunto", "par", "pares", "combo", "caixa",
+                     "pack", "refil", "super", "mega"}
+# Produtos com nomes diferentes que, para quem le o grupo, sao a mesma coisa.
+TIPOS_IGUAIS = {
+    "tira-manchas": ("percarbonato", "tira manchas", "tira-manchas", "alvejante", "vanish"),
+    "racao": ("racao", "whiskas", "friskies", "pedigree"),
+}
+
+
+def _palavras(nome: str) -> list:
+    import re
+
+    texto = re.sub(r"[^a-z0-9 ]", " ", normalizar(nome))
+    return [w for w in texto.split()
+            if len(w) >= 3 and not w.isdigit() and w not in _PALAVRAS_IGNORADAS]
+
+
+def palavras_do_nome(nome: str) -> frozenset:
+    return frozenset(_palavras(nome)[:8])
+
+
+def nome_parecido(palavras: frozenset, recentes: list) -> bool:
+    if len(palavras) < 2:
+        return False
+    for outras in recentes:
+        if not outras:
+            continue
+        iguais = len(palavras & outras)
+        if iguais / len(palavras | outras) >= SEMELHANCA_MINIMA:
+            return True
+    return False
+
+
+def tipo_do_produto(nome: str) -> str:
+    """O que o produto e', para nao mandar dois iguais no dia: um grupo de
+    TIPOS_IGUAIS ou a primeira palavra que importa ("sanduicheira")."""
+    alvo = normalizar(nome)
+    for tipo, termos in TIPOS_IGUAIS.items():
+        if any(termo in alvo for termo in termos):
+            return tipo
+    for palavra in _palavras(nome):
+        if palavra not in _NAO_DIZEM_O_TIPO:
+            return palavra.rstrip("s") or palavra
+    return ""
+
+
+def tipos_de_hoje() -> set:
+    """Tipos dos produtos que ja sairam hoje no grupo (cupom nao conta)."""
+    hoje = agora_brasil().strftime("%d/%m")
+    tipos = {tipo_do_produto(str(r.get("titulo") or "").split(": ", 1)[-1])
+             for r in ler_log()
+             if r.get("ok") and r.get("tipo") in ("fila", "shopee")
+             and str(r.get("quando") or "").startswith(hoje)}
+    tipos.discard("")
+    return tipos
+
+
+def tipos_na_fila() -> set:
+    tipos = {tipo_do_produto(str(i.get("nome") or "")) for i in listar_fila()}
+    tipos.discard("")
+    return tipos
+
+
+def tipo_repetido(nome: str) -> str:
+    """O tipo do produto, se ja saiu hoje ou ja esta na fila; senao ""."""
+    tipo = tipo_do_produto(nome)
+    return tipo if tipo and tipo in (tipos_de_hoje() | tipos_na_fila()) else ""
+
+
 def produto_repetido(nome: str, cupom: bool = False) -> str:
-    """'fila' se um produto com o mesmo nome ja esta na fila (ou, com
+    """'fila' se um produto de nome igual ou parecido ja esta na fila (ou, com
     cupom=True, um cupom com a mesma descricao ja esta cadastrado),
     'enviado' se saiu recentemente (historico de envios), '' se e' novo."""
     # O historico guarda o titulo cortado em 120 letras, entao compara so o
@@ -337,16 +419,29 @@ def produto_repetido(nome: str, cupom: bool = False) -> str:
     alvo = _comeco(nome)
     if not alvo:
         return ""
+    palavras = palavras_do_nome(nome)
+
+    def _igual(outro) -> bool:
+        if _comeco(outro) == alvo:
+            return True
+        return not cupom and nome_parecido(palavras, [palavras_do_nome(outro)])
+
     if cupom:
-        if any(_comeco(c.get("descricao")) == alvo for c in listar_cupons()):
+        if any(_igual(c.get("descricao")) for c in listar_cupons()):
             return "fila"
-    elif any(_comeco(i.get("nome")) == alvo for i in listar_fila()):
+    elif any(_igual(i.get("nome")) for i in listar_fila()):
         return "fila"
     for registro in ler_log():
         if not registro.get("ok"):
             continue
         titulo = str(registro.get("titulo") or "")
-        if _comeco(titulo.split(": ", 1)[-1]) == alvo:
+        if _igual(titulo.split(": ", 1)[-1]):
+            return "enviado"
+    if not cupom:
+        # O historico lembra os nomes por DIAS_SEM_REPETIR dias; o log, so os ultimos envios.
+        recentes = [frozenset(k[5:].split()) for k in ids_recentes(ler_historico())
+                    if k.startswith("nome:")]
+        if nome_parecido(palavras, recentes):
             return "enviado"
     return ""
 
