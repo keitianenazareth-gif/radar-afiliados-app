@@ -111,6 +111,66 @@ def diagnostico_comentarios() -> dict:
     return {"le_posts": True, "posts": resultado}
 
 
+POST_DO_TESTE = "DfVzEmJjki8"
+MENSAGEM_DO_TESTE = (
+    "Oi! Que bom que você gostou 😊 Aqui estão os links:\n\n"
+    "Potes com tampa de bambu: https://s.shopee.com.br/6AmKY9yYcL\n"
+    "Mini umidificador: https://s.shopee.com.br/2LZbwslENm\n"
+    "Tapete felpudo: https://s.shopee.com.br/3qOQ9VIPxA\n"
+    "Prateleira de banheiro: https://s.shopee.com.br/1BNeYjpfkh\n"
+    "Cesto dobrável: https://s.shopee.com.br/gRONiGKOC\n\n"
+    "São links de afiliada. Confere o preço e o frete antes de comprar!\n"
+    "Tem achadinho todo dia no grupo, é só tocar no link da bio ✨"
+)
+
+
+def comentarios_do_teste() -> list:
+    """So leitura: comentarios do post do teste (id, conta e texto)."""
+    _checar_credenciais()
+    resp = requests.get(
+        f"{BASE_URL}/{INSTAGRAM_USER_ID}/media",
+        params={"fields": "shortcode", "limit": 25, "access_token": INSTAGRAM_ACCESS_TOKEN},
+        timeout=30,
+    )
+    dados = resp.json()
+    if resp.status_code >= 400:
+        raise InstagramPublishError(f"Meta recusou: {dados.get('error', {}).get('message', 'sem detalhe')}")
+    post = next((p for p in dados.get("data", []) if p.get("shortcode") == POST_DO_TESTE), None)
+    if not post:
+        raise InstagramPublishError("Post do teste nao encontrado.")
+    resp = requests.get(
+        f"{BASE_URL}/{post['id']}/comments",
+        params={"fields": "id,username,text", "access_token": INSTAGRAM_ACCESS_TOKEN},
+        timeout=30,
+    )
+    dados = resp.json()
+    if resp.status_code >= 400:
+        raise InstagramPublishError(f"Meta recusou: {dados.get('error', {}).get('message', 'sem detalhe')}")
+    return dados.get("data", [])
+
+
+def responder_comentario_teste(comment_id: str) -> dict:
+    """Envia a mensagem fixa do teste como resposta privada a um comentario
+    do post do teste. So aceita comentario cujo texto seja a palavra QUERO."""
+    alvo = next((c for c in comentarios_do_teste() if c.get("id") == comment_id), None)
+    if not alvo:
+        raise InstagramPublishError("Esse comentario nao esta no post do teste.")
+    if (alvo.get("text") or "").strip(" !.\n").upper() != "QUERO":
+        raise InstagramPublishError("O texto desse comentario nao e QUERO.")
+    resp = requests.post(
+        f"{BASE_URL}/{INSTAGRAM_USER_ID}/messages",
+        headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
+        json={"recipient": {"comment_id": comment_id}, "message": {"text": MENSAGEM_DO_TESTE}},
+        timeout=30,
+    )
+    dados = resp.json()
+    if resp.status_code >= 400:
+        erro = dados.get("error", {})
+        return {"enviado": False, "http": resp.status_code, "codigo": erro.get("code"),
+                "subcodigo": erro.get("error_subcode"), "mensagem": erro.get("message", "sem detalhe")}
+    return {"enviado": True, "message_id": dados.get("message_id")}
+
+
 def criar_container_reel(
     video_url: str,
     legenda: str,

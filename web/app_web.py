@@ -541,6 +541,28 @@ def instagram_comentarios_teste():
         return jsonify({"ok": False, "erro": str(erro)})
 
 
+@app.route("/api/instagram/resposta-teste")
+def instagram_resposta_teste_lista():
+    """So leitura: lista os comentarios do post do teste."""
+    from web.instagram_publish import InstagramPublishError, comentarios_do_teste
+
+    try:
+        return jsonify({"ok": True, "comentarios": comentarios_do_teste()})
+    except InstagramPublishError as erro:
+        return jsonify({"ok": False, "erro": str(erro)})
+
+
+@app.route("/api/instagram/resposta-teste/<comment_id>", methods=["POST"])
+def instagram_resposta_teste_enviar(comment_id):
+    """Teste manual: envia uma resposta privada a um comentario QUERO."""
+    from web.instagram_publish import InstagramPublishError, responder_comentario_teste
+
+    try:
+        return jsonify({"ok": True, **responder_comentario_teste(comment_id)})
+    except InstagramPublishError as erro:
+        return jsonify({"ok": False, "erro": str(erro)})
+
+
 @app.route("/galeria/postar-instagram/<item_id>", methods=["POST"])
 def galeria_postar_instagram(item_id):
     """Posta um item ja salvo na Galeria como Reel no Instagram
