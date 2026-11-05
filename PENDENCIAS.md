@@ -32,7 +32,7 @@ ScanHub recomenda número de WhatsApp Business dedicado). Não cadastrar a chave
   Com 26 categorias, a simulação de 05/11 (sem histórico) achou 228 de 300 por dia, e a regra de não repetir por 30 dias tende a reduzir isso. Acompanhar os avisos de rodada menor.
   Conferir nos primeiros dias se a Oferta do dia ainda vale às 7h e se o notebook estava ligado.
   Seleção mais rígida: Shopee em rodízio de listas, 30% de desconto, até R$ 100 e 11 categorias;
-  repetido compara nome parecido (30 dias) e não sai 2 do mesmo tipo no dia. Exemplos do que
+  repetido compara nome parecido (30 dias) e sai até 3 do mesmo tipo por dia, nunca 2 na mesma rodada (decisão de 05/11; simulação sem histórico: 271 de 300 por dia). Depois de 1 semana, olhar os avisos de rodada menor: se a regra de 30 dias pesar, decidir encurtar o prazo. Exemplos do que
   combina ou não com o grupo em `tarefa_ml/INSTRUCOES.md`: atualizar quando a Keiti reprovar um.
   Testar por 1 semana: olhar avisos do WhatsApp e gente saindo do grupo.
   Links da Shopee levam subId da hora (ex.: `h20`): em 2-3 semanas, ver no relatório da

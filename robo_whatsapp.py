@@ -233,7 +233,8 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
 
     escolhidos, usados = [], set(ja_usados)
     nomes_usados = nomes_recentes(usados)
-    # Nada do mesmo tipo de algo que ja saiu hoje ou que esta na fila.
+    # Fora: tipos que ja chegaram ao limite do dia, os da fila e, a cada escolha, o tipo
+    # escolhido (assim nao saem 2 iguais na mesma rodada).
     tipos_usados = dados.tipos_de_hoje() | dados.tipos_na_fila()
     pulados = 0
     while len(escolhidos) < quantidade and any(f for _, f in filas):
@@ -506,7 +507,7 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
 
     # 2) Fila de outras lojas: sem as vencidas e com as prioritarias na frente.
     na_fila = dados.fila_para_envio()
-    # Do mesmo tipo de algo que ja saiu hoje fica de fora (e vence, se tiver prazo).
+    # Tipo que ja chegou ao limite do dia fica de fora (e vence, se tiver prazo).
     tipos_hoje = dados.tipos_de_hoje()
     na_fila = [i for i in na_fila
                if dados.tipo_do_produto(str(i.get("nome") or "")) not in tipos_hoje]

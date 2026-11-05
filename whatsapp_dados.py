@@ -36,6 +36,7 @@ CHAVE_TRAVA = "whatsapp:trava"
 CHAVE_HISTORICO_ANTIGA = "robo_whatsapp:historico"
 
 DIAS_SEM_REPETIR = 30
+MAX_POR_TIPO_DIA = 3  # produtos do mesmo tipo no grupo por dia (nunca 2 na mesma rodada)
 TOLERANCIA_RODADA_MIN = 20
 MAX_LOG = 400  # precisa cobrir o dia todo: os tipos de hoje saem daqui
 
@@ -369,15 +370,21 @@ def tipo_do_produto(nome: str) -> str:
     return ""
 
 
-def tipos_de_hoje() -> set:
-    """Tipos dos produtos que ja sairam hoje no grupo (cupom nao conta)."""
+def _contagem_tipos_hoje() -> dict:
+    """Quantos de cada tipo ja sairam hoje no grupo (cupom nao conta)."""
     hoje = agora_brasil().strftime("%d/%m")
-    tipos = {tipo_do_produto(str(r.get("titulo") or "").split(": ", 1)[-1])
-             for r in ler_log()
-             if r.get("ok") and r.get("tipo") in ("fila", "shopee")
-             and str(r.get("quando") or "").startswith(hoje)}
-    tipos.discard("")
-    return tipos
+    contagem = {}
+    for r in ler_log():
+        if r.get("ok") and r.get("tipo") in ("fila", "shopee") and str(r.get("quando") or "").startswith(hoje):
+            tipo = tipo_do_produto(str(r.get("titulo") or "").split(": ", 1)[-1])
+            if tipo:
+                contagem[tipo] = contagem.get(tipo, 0) + 1
+    return contagem
+
+
+def tipos_de_hoje() -> set:
+    """Tipos que ja chegaram ao limite do dia."""
+    return {t for t, q in _contagem_tipos_hoje().items() if q >= MAX_POR_TIPO_DIA}
 
 
 def tipos_na_fila() -> set:
@@ -387,9 +394,12 @@ def tipos_na_fila() -> set:
 
 
 def tipo_repetido(nome: str) -> str:
-    """O tipo do produto, se ja saiu hoje ou ja esta na fila; senao ""."""
+    """O tipo do produto, se com a fila ja chega ao limite do dia; senao ""."""
     tipo = tipo_do_produto(nome)
-    return tipo if tipo and tipo in (tipos_de_hoje() | tipos_na_fila()) else ""
+    if not tipo:
+        return ""
+    na_fila = sum(1 for i in listar_fila() if tipo_do_produto(str(i.get("nome") or "")) == tipo)
+    return tipo if _contagem_tipos_hoje().get(tipo, 0) + na_fila >= MAX_POR_TIPO_DIA else ""
 
 
 def produto_repetido(nome: str, cupom: bool = False) -> str:

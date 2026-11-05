@@ -59,9 +59,9 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    - preço até R$ 300, preferindo até R$ 100 (o grupo compra mais coisa barata);
    - teste da amiga: seria útil e fácil de explicar para uma amiga? Preferir
      casa, cozinha, limpeza, beleza, moda e infantil;
-   - variar categorias: nunca 2 produtos do mesmo tipo no mesmo dia, mesmo de
-     marcas ou lojas diferentes (o site recusa; nesse caso, trocar por outro que
-     passe nas regras);
+   - variar categorias: nunca 2 produtos do mesmo tipo na mesma execução, mesmo de
+     marcas ou lojas diferentes. O grupo recebe até 3 do mesmo tipo por dia (acima
+     disso o site recusa; nesse caso, trocar por outro que passe nas regras);
    - NÃO ESCOLHER, mesmo com comissão alta: suplementos (creatina, whey,
      pré-treino), ferramentas (parafusadeira, furadeira), games/consoles, gift
      cards, celulares/iPhone, eletrodoméstico caro, produto adulto, armas,
