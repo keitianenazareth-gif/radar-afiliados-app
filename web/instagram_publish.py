@@ -112,16 +112,40 @@ def diagnostico_comentarios() -> dict:
 
 
 POST_DO_TESTE = "DfVzEmJjki8"
-MENSAGEM_DO_TESTE = (
-    "Oi! Que bom que você gostou 😊 Aqui estão os links:\n\n"
-    "Potes com tampa de bambu: https://s.shopee.com.br/6AmKY9yYcL\n"
-    "Mini umidificador: https://s.shopee.com.br/2LZbwslENm\n"
-    "Tapete felpudo: https://s.shopee.com.br/3qOQ9VIPxA\n"
-    "Prateleira de banheiro: https://s.shopee.com.br/1BNeYjpfkh\n"
-    "Cesto dobrável: https://s.shopee.com.br/gRONiGKOC\n\n"
-    "São links de afiliada. Confere o preço e o frete antes de comprar!\n"
-    "Tem achadinho todo dia no grupo, é só tocar no link da bio ✨"
-)
+_FOTOS = "https://clube-doquero.vercel.app/imagens/"
+_GRUPO = "https://chat.whatsapp.com/Cni0DXs99cx6vwDDwCSX9f"
+
+
+def _cartao(titulo, foto, url):
+    return {
+        "title": titulo,
+        "image_url": _FOTOS + foto,
+        "default_action": {"type": "web_url", "url": url},
+        "buttons": [{"type": "web_url", "url": url, "title": "Ver produto"}],
+    }
+
+
+MENSAGEM_DO_TESTE = {
+    "attachment": {
+        "type": "template",
+        "payload": {
+            "template_type": "generic",
+            "elements": [
+                _cartao("Potes com tampa de bambu", "potes.jpg", "https://s.shopee.com.br/6AmKY9yYcL"),
+                _cartao("Mini umidificador", "umidificador.jpg", "https://s.shopee.com.br/2LZbwslENm"),
+                _cartao("Tapete felpudo", "tapete.jpg", "https://s.shopee.com.br/3qOQ9VIPxA"),
+                _cartao("Prateleira de banheiro", "prateleira.jpg", "https://s.shopee.com.br/1BNeYjpfkh"),
+                _cartao("Cesto dobrável", "cesto.jpg", "https://s.shopee.com.br/gRONiGKOC"),
+                {
+                    "title": "Quer achadinhos todo dia?",
+                    "subtitle": "Entra no nosso grupo do WhatsApp",
+                    "image_url": _FOTOS + "ambiente.jpg",
+                    "buttons": [{"type": "web_url", "url": _GRUPO, "title": "Entrar no grupo"}],
+                },
+            ],
+        },
+    }
+}
 
 
 def comentarios_do_teste() -> list:
@@ -160,7 +184,7 @@ def responder_comentario_teste(comment_id: str) -> dict:
     resp = requests.post(
         f"{BASE_URL}/{INSTAGRAM_USER_ID}/messages",
         headers={"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}"},
-        json={"recipient": {"comment_id": comment_id}, "message": {"text": MENSAGEM_DO_TESTE}},
+        json={"recipient": {"comment_id": comment_id}, "message": MENSAGEM_DO_TESTE},
         timeout=30,
     )
     dados = resp.json()
