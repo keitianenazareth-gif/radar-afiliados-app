@@ -95,16 +95,20 @@ def diagnostico_comentarios() -> dict:
                           "mensagem": erro.get("message", "sem detalhe")}
         return dados.get("data", []), None
 
-    posts, erro = _ler(f"{INSTAGRAM_USER_ID}/media", "id,comments_count")
+    posts, erro = _ler(f"{INSTAGRAM_USER_ID}/media", "shortcode,timestamp,comments_count")
     if erro:
         return {"le_posts": False, "le_comentarios": False, "erro": erro}
-    if not posts:
-        return {"le_posts": True, "le_comentarios": None, "posts": 0}
-    comentarios, erro = _ler(f"{posts[0]['id']}/comments", "id")
-    if erro:
-        return {"le_posts": True, "le_comentarios": False, "posts": len(posts), "erro": erro}
-    return {"le_posts": True, "le_comentarios": True, "posts": len(posts),
-            "comentarios_no_ultimo_post": len(comentarios)}
+    resultado = []
+    for post in posts:
+        comentarios, erro = _ler(f"{post['id']}/comments", "id")
+        resultado.append({
+            "post": post.get("shortcode"),
+            "data": post.get("timestamp"),
+            "contagem_do_post": post.get("comments_count"),
+            "comentarios_que_a_api_mostrou": None if erro else len(comentarios),
+            "erro": erro,
+        })
+    return {"le_posts": True, "posts": resultado}
 
 
 def criar_container_reel(
