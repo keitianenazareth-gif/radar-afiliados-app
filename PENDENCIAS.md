@@ -24,6 +24,8 @@ marque aqui com [x] e faça commit.
   Direct com chave própria (desligada): responde em até 24h, sem texto guardado. Não dá para
   chamar novo seguidor (regra da Meta). Botão pronto: testar se o toque aparece na leitura
   das conversas; o aviso do toque vem por webhook e, se não aparecer, é preciso criar um webhook.
+- Cupons: Mercado Livre até 5 por dia (tarefas das 10h30 e 18h30). A API de afiliados da Shopee
+  não tem consulta de cupom (conferido em 05/11): cupom da Shopee só cadastrando à mão em /whatsapp.
 - Servidor Evolution API no Railway (projeto "sublime-spirit"), instância `promocoes`.
   O chip agora está no WhatsApp Business: conferir em "Aparelhos conectados" se o
   servidor continua conectado; se não, parear de novo.

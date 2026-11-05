@@ -9,8 +9,8 @@ coloca ofertas na fila da página /whatsapp; o robô manda a fila nas rodadas (d
 | Execução | Mercado Livre | Amazon | Cupons | Saem no grupo |
 |---|---|---|---|---|
 | Antes das 9h (6h30) | 5 do Ofertaço | nenhuma | nenhum | na rodada das 7h |
-| Das 9h às 16h (10h30) | 5 do painel | 2 | 1 ou 2 | na rodada das 11h |
-| Depois das 16h (18h30) | 3 do painel + 2 do Ofertaço | 2 | nenhum | na rodada das 19h |
+| Das 9h às 16h (10h30) | 5 do painel | 2 | até 3 | na rodada das 11h em diante |
+| Depois das 16h (18h30) | 3 do painel + 2 do Ofertaço | 2 | até 2 | na rodada das 19h em diante |
 
 Colocar mais que isso faria a oferta esperar na fila e vencer. O Mercado Livre
 é o foco porque paga melhor que as outras lojas. Na execução das 6h30, pular o
@@ -104,11 +104,11 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      sair, o robô descarta. Só escrever `vale_ate_hora` e `prioridade` na
      `OFERTA DO DIA`.
 
-   **Cupons (só na execução das 10h30):**
+   **Cupons (nas execuções das 10h30 e das 18h30, até 5 por dia):**
    - Abrir `https://www.mercadolivre.com.br/cupons` e rodar
      `tarefa_ml\extrair_cupons.js`. NÃO clicar em "Aplicar" nem em nada da
      página (isso mexe na conta da Keiti).
-   - Escolher **1 ou 2** cupons: `tipo` = `EU_QUERO` e `onde` = "Em produtos
+   - Escolher **até 3** cupons às 10h30 e **até 2** às 18h30 (se não houver cupom bom, pode ser menos): `tipo` = `EU_QUERO` e `onde` = "Em produtos
      selecionados" (valem para todo mundo); compra mínima até R$ 100;
      validade de pelo menos 2 dias (ou aviso "Está esgotando!", que dá
      urgência); preferir casa, mercado, beleza, moda e limpeza; evitar
