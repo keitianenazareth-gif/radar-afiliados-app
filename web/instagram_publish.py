@@ -134,6 +134,12 @@ MENSAGEM_DO_TESTE = {
         "payload": {
             "template_type": "generic",
             "elements": [
+                {
+                    "title": "Oi! Que bom ter você aqui 💛",
+                    "subtitle": "Deslize para o lado e veja os achadinhos",
+                    "image_url": _FOTOS + "ambiente.jpg",
+                    "buttons": [{"type": "web_url", "url": _GRUPO, "title": "Entrar no grupo"}],
+                },
                 _cartao("Potes com tampa de bambu", "potes.jpg", "https://s.shopee.com.br/6AmKY9yYcL"),
                 _cartao("Mini umidificador", "umidificador.jpg", "https://s.shopee.com.br/2LZbwslENm"),
                 _cartao("Tapete felpudo", "tapete.jpg", "https://s.shopee.com.br/3qOQ9VIPxA"),
