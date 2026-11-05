@@ -38,12 +38,53 @@
         </div>
         {% if execucao.quando %}
         <p class="linhas-info" style="margin-top:12px">
-            Última conferida: {{ execucao.quando }} · {{ execucao.esperando }} esperando · {{ execucao.enviadas }} enviadas nessa vez
+            Comentários, última conferida: {{ execucao.quando }} · {{ execucao.esperando }} esperando · {{ execucao.enviadas }} enviadas nessa vez
         </p>
         {% if execucao.erro %}<p class="aviso aviso-amarelo">⚠️ {{ execucao.erro }}</p>{% endif %}
         {% else %}
         <p class="aviso aviso-amarelo">O robô ainda não conferiu os comentários nenhuma vez.</p>
         {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="wa-status">
+            <div>
+                <strong>💌 Direct</strong>
+                {% if config.direct_ativo %}
+                <span class="selo selo-verde">● LIGADO</span>
+                {% else %}
+                <span class="selo selo-cinza">⏸ DESLIGADO</span>
+                {% endif %}
+                <p class="linhas-info" style="margin:8px 0 0">
+                    Responde quem escreveu nas últimas 24 horas. A primeira mensagem recebe o convite do grupo, e "quero" recebe os links do último post da lista.
+                    Assunto de pedido e conversa que você já atende aparecem no relatório, sem resposta do robô.
+                </p>
+            </div>
+            <form action="{{ url_for('instagram_robo_direct') }}" method="post" class="inline">
+                <input type="hidden" name="ativo" value="{{ '0' if config.direct_ativo else '1' }}">
+                <button type="submit" class="botao {{ 'botao-secundario' if config.direct_ativo else 'botao-verde' }}">
+                    {{ 'DESLIGAR' if config.direct_ativo else 'LIGAR' }}
+                </button>
+            </form>
+        </div>
+        {% if execucao.quando %}
+        <p class="linhas-info" style="margin-top:12px">
+            Última conferida: {{ execucao.quando }} · {{ execucao.direct_esperando or 0 }} esperando · {{ execucao.direct_enviadas or 0 }} enviadas · {{ execucao.direct_avisos or 0 }} para você ver
+        </p>
+        {% if execucao.erro_direct %}<p class="aviso aviso-amarelo">⚠️ {{ execucao.erro_direct }}</p>{% endif %}
+        {% endif %}
+        <p class="linhas-info" style="margin-top:12px">Botão pronto "Quero entrar no grupo", para quem abre a conversa pela primeira vez. Só ative para testar: o toque ainda precisa ser confirmado.</p>
+        <div class="linha">
+            <form action="{{ url_for('instagram_robo_botao_pronto') }}" method="post" class="inline"
+                  onsubmit="return confirm('Ativar o botão pronto no Direct da página?');">
+                <input type="hidden" name="ligar" value="1">
+                <button type="submit" class="botao botao-secundario">ATIVAR BOTÃO</button>
+            </form>
+            <form action="{{ url_for('instagram_robo_botao_pronto') }}" method="post" class="inline">
+                <input type="hidden" name="ligar" value="0">
+                <button type="submit" class="botao botao-secundario">REMOVER BOTÃO</button>
+            </form>
+        </div>
     </div>
 
     {% for codigo, post in config.posts.items() %}

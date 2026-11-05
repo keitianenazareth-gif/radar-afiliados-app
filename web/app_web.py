@@ -927,6 +927,31 @@ def instagram_robo_ligar():
     return redirect(url_for("instagram_robo"))
 
 
+@app.route("/instagram-robo/direct", methods=["POST"])
+def instagram_robo_direct():
+    import robo_instagram as ri
+
+    ativo = request.form.get("ativo") == "1"
+    ri.salvar_config({"direct_ativo": ativo})
+    flash("✅ Resposta do Direct ligada: começa na próxima conferida, em até 10 minutos." if ativo
+          else "⏸️ Resposta do Direct desligada.")
+    return redirect(url_for("instagram_robo"))
+
+
+@app.route("/instagram-robo/botao-pronto", methods=["POST"])
+def instagram_robo_botao_pronto():
+    import robo_instagram as ri
+    from web.instagram_publish import InstagramPublishError
+
+    ligar = request.form.get("ligar") == "1"
+    try:
+        ri.trocar_botao_pronto(ligar)
+        flash("✅ Botão pronto ativado no Direct." if ligar else "✅ Botão pronto removido do Direct.")
+    except InstagramPublishError as erro:
+        flash(f"⚠️ Não consegui mudar o botão: {erro}")
+    return redirect(url_for("instagram_robo"))
+
+
 @app.route("/instagram-robo/post", methods=["POST"])
 def instagram_robo_post():
     import robo_instagram as ri

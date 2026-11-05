@@ -21,6 +21,9 @@ marque aqui com [x] e faça commit.
 - Robô do Instagram (`robo_instagram.py`, página /instagram-robo): responde QUERO por mensagem
   privada, olhando os comentários a cada 10 min junto com o robô do WhatsApp. Começa DESLIGADO.
   Cada post novo precisa ser cadastrado na página com os produtos dele.
+  Direct com chave própria (desligada): responde em até 24h, sem texto guardado. Não dá para
+  chamar novo seguidor (regra da Meta). Botão pronto: testar se o toque aparece na leitura
+  das conversas; o aviso do toque vem por webhook e, se não aparecer, é preciso criar um webhook.
 - Servidor Evolution API no Railway (projeto "sublime-spirit"), instância `promocoes`.
   O chip agora está no WhatsApp Business: conferir em "Aparelhos conectados" se o
   servidor continua conectado; se não, parear de novo.
