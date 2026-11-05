@@ -121,7 +121,10 @@ def _cartao(titulo, foto, url):
         "title": titulo,
         "image_url": _FOTOS + foto,
         "default_action": {"type": "web_url", "url": url},
-        "buttons": [{"type": "web_url", "url": url, "title": "Ver produto"}],
+        "buttons": [
+            {"type": "web_url", "url": url, "title": "Ver produto"},
+            {"type": "web_url", "url": _GRUPO, "title": "Entrar no grupo"},
+        ],
     }
 
 
@@ -136,12 +139,6 @@ MENSAGEM_DO_TESTE = {
                 _cartao("Tapete felpudo", "tapete.jpg", "https://s.shopee.com.br/3qOQ9VIPxA"),
                 _cartao("Prateleira de banheiro", "prateleira.jpg", "https://s.shopee.com.br/1BNeYjpfkh"),
                 _cartao("Cesto dobrável", "cesto.jpg", "https://s.shopee.com.br/gRONiGKOC"),
-                {
-                    "title": "Quer achadinhos todo dia?",
-                    "subtitle": "Entra no nosso grupo do WhatsApp",
-                    "image_url": _FOTOS + "ambiente.jpg",
-                    "buttons": [{"type": "web_url", "url": _GRUPO, "title": "Entrar no grupo"}],
-                },
             ],
         },
     }
