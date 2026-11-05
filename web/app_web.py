@@ -900,24 +900,9 @@ def _inteiro(valor, padrao, minimo, maximo):
 def whatsapp_ajustes():
     import whatsapp_dados as wd
 
-    def _hora(campo):
-        valor = request.form.get(campo, "").strip()
-        return valor if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", valor) else ""
-
-    faixas = []
-    for numero in (1, 2):
-        inicio, fim = _hora(f"faixa{numero}_inicio"), _hora(f"faixa{numero}_fim")
-        if inicio and fim and inicio < fim:
-            faixas.append({"inicio": inicio, "fim": fim})
-
-    # Faixa da manha: horario invalido ou quantidade 0 deixam ela desligada.
-    manha_inicio, manha_fim = _hora("manha_inicio"), _hora("manha_fim")
-    manha_ok = manha_inicio and manha_fim and manha_inicio < manha_fim
-    faixa_manha = {
-        "inicio": manha_inicio if manha_ok else "",
-        "fim": manha_fim if manha_ok else "",
-        "ml": _inteiro(request.form.get("manha_ml"), 0, 0, 30) if manha_ok else 0,
-    }
+    # Horarios separados por virgula ou espaco; o que nao for hora valida fica de fora.
+    rodadas = sorted({h for h in re.split(r"[,;\s]+", request.form.get("rodadas", ""))
+                      if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", h)})
 
     por_lote = _inteiro(request.form.get("por_lote"), 3, 1, 10)
 
@@ -929,12 +914,8 @@ def whatsapp_ajustes():
         categorias = [""] + [c for c in categorias if c]
 
     wd.salvar_config({
-        "faixas": faixas,
-        "faixa_manha": faixa_manha,
-        "intervalo_min": _inteiro(request.form.get("intervalo_min"), 10, 10, 120),
-        "ml_por_faixa": _inteiro(request.form.get("ml_por_faixa"), 5, 0, 30),
-        "shopee_por_faixa": _inteiro(request.form.get("shopee_por_faixa"), 5, 0, 30),
-        "amazon_por_faixa": _inteiro(request.form.get("amazon_por_faixa"), 2, 0, 30),
+        "rodadas": rodadas,
+        "ofertas_por_rodada": _inteiro(request.form.get("ofertas_por_rodada"), 20, 1, 30),
         "por_lote": por_lote,
         "fila_por_lote": _inteiro(request.form.get("fila_por_lote"), 1, 0, por_lote),
         "cupons_por_lote": _inteiro(request.form.get("cupons_por_lote"), 1, 0, 3),
@@ -945,8 +926,8 @@ def whatsapp_ajustes():
         "chamadas": _linhas("chamadas") or wd.CHAMADAS_PADRAO,
         "nome_curto_ia": bool(request.form.get("nome_curto_ia")),
     })
-    if not faixas:
-        flash("⚠️ Ajustes salvos, mas sem faixa de horário válida: o robô não vai enviar sozinho.")
+    if not rodadas:
+        flash("⚠️ Ajustes salvos, mas sem horário de rodada válido: o robô não vai enviar sozinho.")
     else:
         flash("✅ Ajustes salvos.")
     return redirect(url_for("whatsapp") + "#ajustes")

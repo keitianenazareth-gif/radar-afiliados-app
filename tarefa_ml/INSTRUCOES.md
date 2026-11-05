@@ -2,15 +2,15 @@
 
 Roda no notebook da Keiti (app do Claude aberto + Chrome logado no Mercado
 Livre, extensão Claude in Chrome conectada). Roda às 6h30, 10h30 e 18h30 e
-coloca ofertas na fila da página /whatsapp; o robô manda 1 por vez no grupo.
+coloca ofertas na fila da página /whatsapp; o robô manda a fila nas rodadas (a cada 2h, das 7h às 21h), completando com a Shopee.
 
 **O que colocar depende do horário da execução:**
 
 | Execução | Mercado Livre | Amazon | Cupons | Saem no grupo |
 |---|---|---|---|---|
-| Antes das 9h (6h30) | 5 do Ofertaço | nenhuma | nenhum | 7h às 7h50 |
-| Das 9h às 16h (10h30) | 5 do painel | 2 | 1 ou 2 | a partir das 11h30 |
-| Depois das 16h (18h30) | 3 do painel + 2 do Ofertaço | 2 | nenhum | a partir das 19h |
+| Antes das 9h (6h30) | 5 do Ofertaço | nenhuma | nenhum | na rodada das 7h |
+| Das 9h às 16h (10h30) | 5 do painel | 2 | 1 ou 2 | na rodada das 11h |
+| Depois das 16h (18h30) | 3 do painel + 2 do Ofertaço | 2 | nenhum | na rodada das 19h |
 
 Colocar mais que isso faria a oferta esperar na fila e vencer. O Mercado Livre
 é o foco porque paga melhor que as outras lojas. Na execução das 6h30, pular o

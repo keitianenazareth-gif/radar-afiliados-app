@@ -36,7 +36,8 @@ CHAVE_TRAVA = "whatsapp:trava"
 CHAVE_HISTORICO_ANTIGA = "robo_whatsapp:historico"
 
 DIAS_SEM_REPETIR = 30
-MAX_LOG = 60
+TOLERANCIA_RODADA_MIN = 20
+MAX_LOG = 300  # precisa cobrir o dia todo: os tipos de hoje saem daqui
 
 LOJAS = ["Mercado Livre", "Amazon", "Shopee", "Shein", "Temu", "Magalu", "Outra"]
 
@@ -88,19 +89,13 @@ CHAMADAS_PADRAO = [
 
 CONFIG_PADRAO = {
     "ativo": True,
-    "horarios": [9, 12, 19],  # antigo: o robo agora usa as faixas abaixo
-    # Envio automatico: 1 oferta a cada intervalo_min dentro de cada faixa.
-    "faixas": [{"inicio": "11:30", "fim": "13:30"}, {"inicio": "19:00", "fim": "21:00"}],
-    # Faixa da manha: so Mercado Livre (Ofertaco), sem cupom e sem trocar de loja.
-    # Com "ml" em 0 ela fica desligada.
-    "faixa_manha": {"inicio": "07:00", "fim": "08:00", "ml": 5},
-    "intervalo_min": 10,
-    "ml_por_faixa": 5,       # Mercado Livre (e outras lojas coladas na fila)
-    "shopee_por_faixa": 5,
-    "amazon_por_faixa": 2,
+    "horarios": [9, 12, 19],  # antigo: o robo agora usa as rodadas abaixo
+    # Envio automatico: em cada horario, sai a rodada inteira de uma vez.
+    "rodadas": ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"],
+    "ofertas_por_rodada": 20,
     "por_lote": 3,           # botao "Enviar agora": produtos de uma vez
     "fila_por_lote": 1,      # botao "Enviar agora": quantos vem da fila
-    "cupons_por_lote": 1,    # cupons no inicio de cada faixa
+    "cupons_por_lote": 1,    # cupons em cada rodada
     "amazon_tag": "",
     "palavras_bloqueadas": PALAVRAS_BLOQUEADAS_PADRAO,
     "categorias": CATEGORIAS_PADRAO,
@@ -161,7 +156,7 @@ def _gravar_json(chave: str, valor) -> None:
     _cmd(["SET", chave, json.dumps(valor, ensure_ascii=False)])
 
 
-def pegar_trava(segundos: int = 900) -> bool:
+def pegar_trava(segundos: int = 1800) -> bool:
     """Evita dois lotes ao mesmo tempo (horario automatico + 'Enviar agora')."""
     return _cmd(["SET", CHAVE_TRAVA, "1", "NX", "EX", str(segundos)]) == "OK"
 
@@ -175,63 +170,26 @@ def soltar_trava() -> None:
 
 # ---------------------------------------------------------------- config
 
-def sequencia_da_faixa(ml: int, shopee: int, amazon: int) -> list:
-    """Ordem das ofertas numa faixa, com as lojas bem misturadas."""
-    cotas = [("Mercado Livre", max(0, ml)), ("Shopee", max(0, shopee)), ("Amazon", max(0, amazon))]
-    total = sum(c for _, c in cotas)
-    saldo = {loja: 0 for loja, _ in cotas}
-    ordem = []
-    for _ in range(total):
-        for loja, cota in cotas:
-            saldo[loja] += cota
-        escolhida = max(cotas, key=lambda c: saldo[c[0]])[0]
-        saldo[escolhida] -= total
-        ordem.append(escolhida)
-    return ordem
-
-
 def _minutos(hora: str) -> int:
     horas, minutos = str(hora).split(":")
     return int(horas) * 60 + int(minutos)
 
 
-def vaga_atual(config: dict, agora: datetime) -> dict | None:
-    """A oferta que deve sair agora, ou None se estiver fora das faixas (ou
-    se a faixa ja mandou tudo). So depende do relogio: se um envio falhar, o
-    proximo segue a ordem sem amontoar mensagens."""
-    ordem = sequencia_da_faixa(int(config.get("ml_por_faixa") or 0),
-                               int(config.get("shopee_por_faixa") or 0),
-                               int(config.get("amazon_por_faixa") or 0))
-    intervalo = max(1, int(config.get("intervalo_min") or 10))
+def rodada_atual(config: dict, agora: datetime) -> dict | None:
+    """A rodada que deve sair agora, ou None. O robo acorda a cada 10 minutos:
+    a tolerancia cobre uma execucao perdida, sem mandar rodada muito atrasada."""
     minuto = agora.hour * 60 + agora.minute
-    manha = config.get("faixa_manha") or {}
-    try:
-        if _minutos(manha["inicio"]) <= minuto < _minutos(manha["fim"]):
-            vaga = (minuto - _minutos(manha["inicio"])) // intervalo
-            if vaga >= int(manha.get("ml") or 0):
-                return None
-            return {
-                "loja": "Mercado Livre",
-                "primeira": False,
-                "so_loja": True,
-                "marca": f"{agora:%Y-%m-%d} manha vaga{vaga}",
-            }
-    except (KeyError, TypeError, ValueError):
-        pass
-    for numero, faixa in enumerate(config.get("faixas") or []):
+    validas = []
+    for hora in config.get("rodadas") or []:
         try:
-            inicio, fim = _minutos(faixa["inicio"]), _minutos(faixa["fim"])
-        except (KeyError, TypeError, ValueError):
+            validas.append((_minutos(hora), hora))
+        except (AttributeError, TypeError, ValueError):
             continue
-        if inicio <= minuto < fim:
-            vaga = (minuto - inicio) // intervalo
-            if vaga >= len(ordem):
-                return None
-            return {
-                "loja": ordem[vaga],
-                "primeira": vaga == 0,
-                "marca": f"{agora:%Y-%m-%d} faixa{numero} vaga{vaga}",
-            }
+    for inicio, hora in sorted(validas, reverse=True):
+        if inicio <= minuto:
+            if minuto - inicio < TOLERANCIA_RODADA_MIN:
+                return {"hora": hora, "marca": f"{agora:%Y-%m-%d} rodada {hora}"}
+            return None
     return None
 
 

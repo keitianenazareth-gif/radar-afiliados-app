@@ -27,10 +27,11 @@ Uso (no notebook, pra testar):
     python robo_whatsapp.py --teste          -> mostra o lote, NAO envia
     python robo_whatsapp.py --listar-grupos  -> mostra os grupos e seus IDs
     python robo_whatsapp.py --agora          -> envia um lote ja (ignora horario)
-    python robo_whatsapp.py                  -> envia se for hora de uma oferta
+    python robo_whatsapp.py                  -> envia se for hora de uma rodada
 
-No Railway roda a cada 10 minutos e, dentro das faixas da pagina /whatsapp,
-manda 1 oferta por vez, na ordem das lojas (Mercado Livre, Shopee, Amazon).
+No Railway roda a cada 10 minutos e, nos horarios de rodada da pagina /whatsapp,
+manda a rodada inteira de uma vez: a fila misturada com a Shopee. Se faltar
+oferta boa, a rodada sai menor e fica um aviso no registro de envios.
 
 Variaveis de ambiente / Secrets do GitHub / Environment do Render:
     SHOPEE_APP_ID, SHOPEE_SECRET, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
@@ -39,7 +40,7 @@ Variaveis de ambiente / Secrets do GitHub / Environment do Render:
     WHATSAPP_INSTANCIA   nome da instancia conectada ao chip
     WHATSAPP_GRUPO_ID    (opcional) ID do grupo - o normal e' escolher o grupo
                          na pagina /whatsapp, que salva no Upstash
-Opcionais: WHATSAPP_PAUSA_MIN / WHATSAPP_PAUSA_MAX (segundos, padrao 40 / 90)
+Opcionais: WHATSAPP_PAUSA_MIN / WHATSAPP_PAUSA_MAX (segundos, padrao 40 / 90), so para o "Enviar agora"
 """
 
 from __future__ import annotations
@@ -65,6 +66,7 @@ PRECO_MAXIMO = 100     # R$ (o grupo compra mais coisa barata)
 PRECO_MINIMO = 5       # R$ (abaixo disso costuma ser so a variacao mais barata do anuncio)
 # Se o GitHub atrasar, o lote ainda sai ate esse tanto de horas depois do horario.
 CATEGORIAS_POR_LOTE = 3
+PAUSA_RODADA = (10, 20)  # segundos entre as mensagens de uma rodada
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 CAMPOS_EXTRAS = "shopId productLink ratingStar"
 
@@ -463,20 +465,19 @@ def mensagem_cupom(cupom: dict, estilo: Estilo | None = None) -> str:
 
 # ================================================================ montar o lote
 
-def _loja_da_vaga(item: dict, loja: str) -> bool:
-    """A vaga da Amazon pega a Amazon; a do Mercado Livre pega ele e as outras
-    lojas coladas na fila; a da Shopee nao usa a fila."""
-    if loja == "Shopee":
-        return False
-    return (item.get("loja") == "Amazon") == (loja == "Amazon")
+def _misturar(fila: list, shopee: list) -> list:
+    """Espalha as duas listas por igual, sem mudar a ordem dentro de cada uma."""
+    com_posicao = [((i + 0.5) / len(fila), m) for i, m in enumerate(fila)]
+    com_posicao += [((i + 0.5) / len(shopee), m) for i, m in enumerate(shopee)]
+    return [m for _, m in sorted(com_posicao, key=lambda par: par[0])]
 
 
-def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
-                com_cupom: bool = True, so_loja: bool = False) -> list:
+def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
+                com_cupom: bool = True) -> list:
     """Devolve a lista de mensagens do proximo lote, cada uma como
-    {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "loja", monta
-    1 oferta so daquela loja; se ela nao tiver oferta, usa a de outra. Com
-    "so_loja" (faixa da manha), so serve aquela loja: se faltar, nao vai nada."""
+    {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "quantidade"
+    (rodada), usa a fila toda que couber e completa com a Shopee; sem ela
+    (botao "Enviar agora"), segue os ajustes por_lote e fila_por_lote."""
     lote = []
     hoje = dados.agora_brasil().strftime("%Y-%m-%d")
     estilo = Estilo(config)
@@ -494,7 +495,7 @@ def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
                 "ref": c.get("id"), "codigo": c.get("codigo", ""),
             })
 
-    por_lote = 1 if loja else max(0, int(config.get("por_lote") or 0))
+    por_lote = quantidade or max(0, int(config.get("por_lote") or 0))
 
     # 2) Fila de outras lojas: sem as vencidas e com as prioritarias na frente.
     na_fila = dados.fila_para_envio()
@@ -502,21 +503,25 @@ def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
     tipos_hoje = dados.tipos_de_hoje()
     na_fila = [i for i in na_fila
                if dados.tipo_do_produto(str(i.get("nome") or "")) not in tipos_hoje]
-    if so_loja:
-        da_fila = [i for i in na_fila if i.get("loja") == loja][:1]
-    elif loja:
-        da_fila = [i for i in na_fila if _loja_da_vaga(i, loja)][:1]
+    if quantidade:
+        # Dois do mesmo tipo tambem nao saem juntos na mesma rodada.
+        da_fila, tipos_rodada = [], set()
+        for item in na_fila:
+            tipo = dados.tipo_do_produto(str(item.get("nome") or ""))
+            if tipo and tipo in tipos_rodada:
+                continue
+            tipos_rodada.add(tipo)
+            da_fila.append(item)
+        da_fila = da_fila[:quantidade]
     else:
         da_fila = na_fila[: min(por_lote, int(config.get("fila_por_lote") or 0))]
 
     # 3) Completa com Shopee.
     faltam = por_lote - len(da_fila)
     da_shopee = []
-    if faltam > 0 and not so_loja:
+    if faltam > 0:
         historico = dados.ler_historico()
         da_shopee = escolher_ofertas_shopee(faltam, dados.ids_recentes(historico), config)
-    if loja and not so_loja and not da_fila and not da_shopee:
-        da_fila = na_fila[:1]  # a Shopee nao trouxe nada: vai o que tiver na fila
 
     # Nome curto pelo Gemini: uma chamada so para o lote todo (se falhar,
     # ficam os nomes originais). O titulo do historico usa o nome original,
@@ -529,8 +534,9 @@ def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
 
         curtos = encurtar_nomes(nomes)
 
+    msgs_fila, msgs_shopee = [], []
     for item, curto in zip(da_fila, curtos):
-        lote.append({
+        msgs_fila.append({
             "tipo": "fila", "titulo": f"{item.get('loja')}: {item.get('nome')}",
             "texto": mensagem_fila(item, estilo, curto), "imagem": item.get("imagem", ""),
             "link": item.get("link", ""), "ref": item.get("id"),
@@ -538,7 +544,7 @@ def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
         })
     for p, curto in zip(da_shopee, curtos[len(da_fila):]):
         link = link_afiliado_shopee(p) if gerar_links else str(p.get("offerLink") or "")
-        lote.append({
+        msgs_shopee.append({
             "tipo": "shopee", "lista": p["_lista"],
             "titulo": f"Shopee ({p['_lista']}): {p.get('productName')}",
             "texto": mensagem_shopee(p, link, estilo, curto),
@@ -546,7 +552,7 @@ def montar_lote(config: dict, gerar_links: bool = True, loja: str = "",
             "link": link, "ref": str(p.get("itemId")),
             "nome": str(p.get("productName") or ""),
         })
-    return lote
+    return lote + (_misturar(msgs_fila, msgs_shopee) if quantidade else msgs_fila + msgs_shopee)
 
 
 # ================================================================ WhatsApp
@@ -647,8 +653,7 @@ def _depois_de_enviar(msg: dict) -> None:
         dados.salvar_historico(historico)
 
 
-def enviar_lote(origem: str = "automatico", loja: str = "", com_cupom: bool = True,
-                so_loja: bool = False) -> int:
+def enviar_lote(origem: str = "automatico", quantidade: int = 0) -> int:
     """Monta e envia um lote. Devolve quantas mensagens foram enviadas."""
     faltando = whatsapp_configurado()
     if faltando:
@@ -664,15 +669,24 @@ def enviar_lote(origem: str = "automatico", loja: str = "", com_cupom: bool = Tr
             print(f"Oferta vencida, nao enviada: {vencida.get('nome')}")
             dados.registrar("aviso", f"Oferta vencida, não enviada: {vencida.get('nome')}",
                             vencida.get("link", ""), ok=False, origem=origem)
-        lote = montar_lote(config, loja=loja, com_cupom=com_cupom, so_loja=so_loja)
+        lote = montar_lote(config, quantidade=quantidade)
         if not lote:
             print("Nada para enviar agora (sem ofertas novas, fila e cupons vazios).")
             dados.registrar("aviso", "Lote vazio: nenhuma oferta nova encontrada",
                             ok=False, origem=origem)
             return 0
 
-        pausa_min = int(_env("WHATSAPP_PAUSA_MIN", "40") or 40)
-        pausa_max = max(pausa_min, int(_env("WHATSAPP_PAUSA_MAX", "90") or 90))
+        ofertas = sum(1 for m in lote if m["tipo"] != "cupom")
+        if quantidade and ofertas < quantidade:
+            aviso = f"Rodada menor: {ofertas} de {quantidade} ofertas (faltou oferta nova que passe nas regras)"
+            print(aviso)
+            dados.registrar("aviso", aviso, ok=False, origem=origem)
+
+        if quantidade:
+            pausa_min, pausa_max = PAUSA_RODADA
+        else:
+            pausa_min = int(_env("WHATSAPP_PAUSA_MIN", "40") or 40)
+            pausa_max = max(pausa_min, int(_env("WHATSAPP_PAUSA_MAX", "90") or 90))
         grupo = grupo_destino()
         enviados = 0
         for n, msg in enumerate(lote, start=1):
@@ -704,37 +718,35 @@ def enviar_lote(origem: str = "automatico", loja: str = "", com_cupom: bool = Tr
 # ================================================================ principal
 
 def rodar_agendado() -> None:
-    """Chamado a cada 10 minutos pelo Railway: dentro de uma faixa de horario,
-    manda a oferta da vez, uma vez so."""
+    """Chamado a cada 10 minutos pelo Railway: se for hora de uma rodada,
+    manda ela inteira, uma vez so."""
     config = dados.ler_config()
     agora = dados.agora_brasil()
     if not config.get("ativo"):
         print("Robo pausado na pagina /whatsapp. Nada enviado.")
         return
-    vaga = dados.vaga_atual(config, agora)
-    if not vaga:
-        print(f"Agora sao {agora:%H:%M} (Brasilia): fora das faixas {config.get('faixas')}. Nada a fazer.")
+    rodada = dados.rodada_atual(config, agora)
+    if not rodada:
+        print(f"Agora sao {agora:%H:%M} (Brasilia): fora das rodadas {config.get('rodadas')}. Nada a fazer.")
         return
-    if dados.ler_ultimo_lote() == vaga["marca"]:
-        print(f"A oferta das {agora:%H:%M} ja foi enviada.")
+    if dados.ler_ultimo_lote() == rodada["marca"]:
+        print(f"A rodada das {rodada['hora']} ja foi enviada.")
         return
     faltando = whatsapp_configurado()
     if faltando:
         print("WhatsApp ainda nao configurado (falta: " + ", ".join(faltando) + "). Nada enviado.")
         _aviso_actions("warning", "WhatsApp nao configurado", "Falta: " + ", ".join(faltando))
         return
-    dados.marcar_ultimo_lote(vaga["marca"])
-    # Os cupons saem so no comeco de cada faixa.
-    enviados = enviar_lote("automatico", vaga["loja"], com_cupom=vaga["primeira"],
-                           so_loja=bool(vaga.get("so_loja")))
+    dados.marcar_ultimo_lote(rodada["marca"])
+    enviados = enviar_lote("automatico", int(config.get("ofertas_por_rodada") or 0))
     if enviados == 0:
         _aviso_actions("warning", "Lote vazio", "Nenhuma mensagem foi enviada neste horario.")
 
 
 def rodar_teste() -> None:
     config = dados.ler_config()
-    print(f"Robo {'LIGADO' if config.get('ativo') else 'PAUSADO'} | horarios {config.get('horarios')}")
-    lote = montar_lote(config)
+    print(f"Robo {'LIGADO' if config.get('ativo') else 'PAUSADO'} | rodadas {config.get('rodadas')}")
+    lote = montar_lote(config, quantidade=int(config.get("ofertas_por_rodada") or 0))
     if not lote:
         print("Lote vazio.")
         _aviso_actions("warning", "Lote vazio", "Nenhuma oferta, item da fila ou cupom disponivel.")

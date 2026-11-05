@@ -28,14 +28,10 @@
                 <span class="selo selo-cinza">⏸ PAUSADO</span>
                 {% endif %}
                 <p class="linhas-info" style="margin:8px 0 0">
-                    {% if config.faixas %}
-                    Envia {% for f in config.faixas %}das {{ f.inicio }} às {{ f.fim }}{% if not loop.last %} e {% endif %}{% endfor %}
-                    · 1 oferta a cada {{ config.intervalo_min }} min
-                    {% if config.faixa_manha and config.faixa_manha.ml %}
-                    · Ofertaço do Mercado Livre das {{ config.faixa_manha.inicio }} às {{ config.faixa_manha.fim }}: {{ config.faixa_manha.ml }} ofertas
-                    {% endif %}
+                    {% if config.rodadas %}
+                    Envia {{ config.ofertas_por_rodada }} ofertas de uma vez às {{ config.rodadas|join(', ') }}
                     {% else %}
-                    Nenhuma faixa de horário nos ajustes.
+                    Nenhum horário de rodada nos ajustes.
                     {% endif %}
                 </p>
             </div>
@@ -139,8 +135,7 @@
         <summary><strong>🛍️ Fila de ofertas de outras lojas</strong>
             <span class="contador">{{ fila|length }}</span></summary>
         <p class="linhas-info">Cole aqui ofertas do Mercado Livre, Amazon, Shein, Temu...
-            Em cada faixa saem {{ config.ml_por_faixa }} do Mercado Livre e outras lojas e
-            {{ config.amazon_por_faixa }} da Amazon, na ordem abaixo. Na faixa da manhã sai só Mercado Livre. Depois de enviado, o item sai da fila.</p>
+            Em cada rodada sai a fila, na ordem abaixo, misturada com a Shopee. Depois de enviado, o item sai da fila.</p>
 
         <form action="{{ url_for('whatsapp_fila_adicionar') }}" method="post" class="sub-card">
             <input type="url" name="link" placeholder="Link de afiliado do produto (https://...)" required>
@@ -247,43 +242,15 @@
     <details class="card" id="ajustes">
         <summary><strong>⚙️ Ajustes</strong></summary>
         <form action="{{ url_for('whatsapp_ajustes') }}" method="post">
-            {% set fm = config.faixa_manha or {} %}
-            <p class="rotulo">Faixa da manhã (só Ofertaço do Mercado Livre, sem cupom)</p>
-            <label class="rotulo">Manhã: início e fim
-                <input type="time" name="manha_inicio" value="{{ fm.inicio }}">
-                <input type="time" name="manha_fim" value="{{ fm.fim }}">
+            <label class="rotulo">Horários das rodadas (Brasília, separados por vírgula)
+                <input type="text" name="rodadas" value="{{ (config.rodadas or [])|join(', ') }}">
             </label>
-            <label class="rotulo">Ofertas na faixa da manhã (0 desliga)
-                <input type="number" name="manha_ml" min="0" max="30" value="{{ fm.ml or 0 }}">
+            <label class="rotulo">Ofertas em cada rodada (se faltar oferta boa, a rodada sai menor)
+                <input type="number" name="ofertas_por_rodada" min="1" max="30" value="{{ config.ofertas_por_rodada }}">
             </label>
-            <p class="linhas-info">A tarefa do notebook que escolhe essas ofertas roda às 6h30.
-                Mudar o horário aqui não muda o da tarefa.</p>
-            <p class="rotulo">Faixas de envio (Brasília)</p>
-            {% set f1 = config.faixas[0] if config.faixas|length > 0 else {} %}
-            {% set f2 = config.faixas[1] if config.faixas|length > 1 else {} %}
-            <label class="rotulo">Faixa 1: início e fim
-                <input type="time" name="faixa1_inicio" value="{{ f1.inicio }}">
-                <input type="time" name="faixa1_fim" value="{{ f1.fim }}">
-            </label>
-            <label class="rotulo">Faixa 2: início e fim
-                <input type="time" name="faixa2_inicio" value="{{ f2.inicio }}">
-                <input type="time" name="faixa2_fim" value="{{ f2.fim }}">
-            </label>
-            <label class="rotulo">Minutos entre uma oferta e outra (mínimo 10)
-                <input type="number" name="intervalo_min" min="10" max="120" value="{{ config.intervalo_min }}">
-            </label>
-            <label class="rotulo">Mercado Livre por faixa (inclui outras lojas da fila)
-                <input type="number" name="ml_por_faixa" min="0" max="30" value="{{ config.ml_por_faixa }}">
-            </label>
-            <label class="rotulo">Shopee por faixa
-                <input type="number" name="shopee_por_faixa" min="0" max="30" value="{{ config.shopee_por_faixa }}">
-            </label>
-            <label class="rotulo">Amazon por faixa
-                <input type="number" name="amazon_por_faixa" min="0" max="30" value="{{ config.amazon_por_faixa }}">
-            </label>
-            <p class="linhas-info">A quantidade precisa caber na faixa: 12 ofertas a cada 10 minutos
-                levam 2 horas. O que passar do fim da faixa não sai.</p>
-            <label class="rotulo">Cupons no começo de cada faixa
+            <p class="linhas-info">A tarefa do notebook coloca ofertas do Mercado Livre e da Amazon na fila às 6h30, 10h30 e 18h30.
+                Mudar os horários aqui não muda os da tarefa.</p>
+            <label class="rotulo">Cupons em cada rodada
                 <input type="number" name="cupons_por_lote" min="0" max="3" value="{{ config.cupons_por_lote }}">
             </label>
             <label class="rotulo">Botão "Enviar agora": ofertas de uma vez
