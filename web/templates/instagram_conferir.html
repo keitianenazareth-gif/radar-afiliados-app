@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Conferir post - Radar Afiliados{% endblock %}
+{% block conteudo %}
+<div class="wa-pagina">
+    <h1>Confira antes de publicar</h1>
+    <p class="subtitulo">Ainda não publiquei nada</p>
+
+    <div class="card">
+        <strong>{% if midias|length > 1 %}Carrossel com {{ midias|length }} itens{% elif midias[0].tipo == 'video' %}Reel{% else %}Foto{% endif %}</strong>
+        <div class="fila-midia">
+            {% for m in midias %}
+            <img src="{{ m.thumbnail_url or m.url }}" alt="Item {{ loop.index }} do post">
+            {% endfor %}
+        </div>
+        <p class="rotulo">Legenda</p>
+        <div class="wa-msg-texto">{{ form.legenda or '(sem legenda)' }}</div>
+    </div>
+
+    <div class="card">
+        <strong>Robô do QUERO</strong>
+        {% if produtos %}
+        <p class="linhas-info">Quem comentar QUERO{% if form.palavra %} ou {{ form.palavra }}{% endif %} recebe {{ produtos|length }} {{ 'produto' if produtos|length == 1 else 'produtos' }}, com os botões Ver produto e Entrar no grupo:</p>
+        {% for p in produtos %}
+        <div class="wa-item">
+            <img src="{{ p.foto }}" alt="">
+            <div class="wa-item-info"><strong>{{ p.titulo }}</strong>
+                <a href="{{ p.link }}" target="_blank" rel="noopener" class="link-pequeno">testar o link</a></div>
+        </div>
+        {% endfor %}
+        {% if sem_quero %}
+        <p class="aviso aviso-amarelo">⚠️ A legenda não fala para comentar QUERO. Vale avisar, para as pessoas saberem como pedir o link.</p>
+        {% endif %}
+        {% else %}
+        <p class="linhas-info">Sem produtos: o robô não vai responder neste post.</p>
+        {% endif %}
+    </div>
+
+    <form action="{{ url_for('instagram_publicar_confirmar') }}" method="post" id="form-confirmar"
+          onsubmit="return confirmarPublicacao(this);">
+        <input type="hidden" name="token" value="{{ token }}">
+        <input type="hidden" name="ids" value="{{ form.ids|join(',') }}">
+        <input type="hidden" name="legenda" value="{{ form.legenda }}">
+        <input type="hidden" name="nome" value="{{ form.nome }}">
+        <input type="hidden" name="palavra" value="{{ form.palavra }}">
+        <input type="hidden" name="produtos_json" value="{{ produtos_json }}">
+        <button type="submit" class="botao botao-primario botao-largo">PUBLICAR AGORA</button>
+        <p class="linhas-info" id="aviso-espera">Aparece para seus seguidores assim que sair. Vídeo pode levar uns minutos.</p>
+    </form>
+
+    <form action="{{ url_for('instagram_publicar') }}" method="post">
+        <input type="hidden" name="editar" value="1">
+        <input type="hidden" name="modo" value="{{ form.modo }}">
+        <input type="hidden" name="ids" value="{{ form.ids|join(',') }}">
+        <input type="hidden" name="legenda" value="{{ form.legenda }}">
+        <input type="hidden" name="nome" value="{{ form.nome }}">
+        <input type="hidden" name="palavra" value="{{ form.palavra }}">
+        <input type="hidden" name="produtos_json" value="{{ produtos_json }}">
+        <button type="submit" class="botao botao-secundario botao-largo">VOLTAR E EDITAR</button>
+    </form>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+    function confirmarPublicacao(form) {
+        if (!confirm("Publicar este post no Instagram agora?")) return false;
+        const botao = form.querySelector("button[type=submit]");
+        botao.disabled = true;
+        botao.textContent = "PUBLICANDO...";
+        document.getElementById("aviso-espera").textContent = "Publicando. Não feche esta página.";
+        return true;
+    }
+</script>
+{% endblock %}

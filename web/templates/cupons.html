@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block titulo %}Cupons - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <h1>Cupons</h1>
+    <p class="subtitulo">{{ validos }} válidos · {{ conferidos }} conferidos por você</p>
+
+    {% for mensagem in get_flashed_messages() %}
+    <p class="aviso">{{ mensagem }}</p>
+    {% endfor %}
+    {% if erro_dados %}
+    <div class="card card-erro"><strong>⚠️ Não consegui carregar os cupons</strong>
+        <p class="linhas-info">{{ erro_dados }}</p></div>
+    {% endif %}
+
+    <p class="aviso aviso-amarelo">Muitos cupons valem só em produtos selecionados. Teste o código no carrinho antes de marcar como conferido.</p>
+
+    <div class="card">
+        <label class="rotulo" for="busca-cupom">Buscar por código</label>
+        <input type="text" id="busca-cupom" placeholder="Ex.: CASA">
+        <div class="grade-dois">
+            <div><label class="rotulo" for="preco-produto">Preço do produto (R$)</label>
+                <input type="number" id="preco-produto" min="0" step="0.01" placeholder="Ex.: 149,90"></div>
+            <div><label class="rotulo" for="desconto-minimo">Desconto mínimo (%)</label>
+                <input type="number" id="desconto-minimo" min="0" max="100" placeholder="Ex.: 10"></div>
+        </div>
+        <div class="linha" role="group" aria-label="Filtrar por loja">
+            <button type="button" class="filtro ativo" data-loja="">Todas</button>
+            {% for loja in lojas %}<button type="button" class="filtro" data-loja="{{ loja }}">{{ loja }}</button>{% endfor %}
+            <button type="button" class="filtro" id="vencem-hoje" aria-pressed="false">Vencem hoje</button>
+        </div>
+    </div>
+
+    <p class="linhas-info" id="contagem-cupons" aria-live="polite"></p>
+
+    <div class="grade-cupons" id="lista-cupons">
+    {% for c in cupons %}
+        {% set vencido = c.validade and c.validade < hoje %}
+        <article class="cupom" data-loja="{{ c.loja }}" data-codigo="{{ (c.codigo or '')|lower }}"
+                 data-minimo="{{ c.minimo or 0 }}" data-desconto="{{ c.desconto if c.desconto_tipo == '%' else 0 }}"
+                 data-validade="{{ c.validade or '' }}">
+            <div class="linha-entre">
+                <p class="cupom-valor">{% if c.desconto %}{% if c.desconto_tipo == 'R$' %}R$ {{ c.desconto }} OFF{% else %}{{ c.desconto }}% OFF{% endif %}{% else %}{{ c.descricao or 'Cupom' }}{% endif %}</p>
+                <span class="selo {{ 'selo-conferido' if c.conferido else 'selo-cinza' }}">{{ 'Conferido' if c.conferido else 'Falta conferir' }}</span>
+            </div>
+            {% if c.codigo %}<p class="cupom-codigo">{{ c.codigo }}</p>{% else %}<p class="linhas-info">Sem código: ativa pelo link</p>{% endif %}
+            {% if c.desconto and c.descricao %}<p class="linhas-info">{{ c.descricao }}</p>{% endif %}
+            {% if c.detalhes %}<p class="linhas-info">{{ c.detalhes }}</p>{% endif %}
+            <p class="linhas-info">{{ c.loja }}{% if c.minimo %} · Mínimo R$ {{ c.minimo }}{% endif %}{% if c.limite %} · Até R$ {{ c.limite }}{% endif %} · {% if vencido %}❌ vencido{% elif c.validade %}Vence {{ c.validade[8:10] }}/{{ c.validade[5:7] }}{% else %}Sem validade{% endif %}{% if c.ultimo_envio == hoje %} · ✅ já saiu hoje{% elif c.prioridade %} · sai na próxima rodada{% endif %}</p>
+            <div class="grade-dois">
+                {% if c.codigo %}<button type="button" class="botao botao-contorno copiar" data-codigo="{{ c.codigo }}">Copiar</button>
+                {% elif c.link %}<a class="botao botao-contorno" href="{{ c.link }}" target="_blank" rel="noopener">Abrir link</a>{% endif %}
+                {% if c.conferido %}
+                <form action="{{ url_for('cupom_usar', cupom_id=c.id) }}" method="post"><button type="submit" class="botao botao-primario largura-toda" {{ 'disabled' if vencido }}>Usar na rodada</button></form>
+                {% else %}
+                <form action="{{ url_for('cupom_conferir', cupom_id=c.id) }}" method="post"><input type="hidden" name="conferido" value="1"><button type="submit" class="botao botao-destaque largura-toda">Marcar como testado</button></form>
+                {% endif %}
+            </div>
+            <div class="linha">
+                {% if c.conferido %}
+                <form action="{{ url_for('cupom_conferir', cupom_id=c.id) }}" method="post" class="inline"><input type="hidden" name="conferido" value="0"><button type="submit" class="botao-texto">Desmarcar conferido</button></form>
+                {% endif %}
+                <form action="{{ url_for('whatsapp_cupons_remover', cupom_id=c.id) }}" method="post" class="inline" onsubmit="return confirm('Apagar este cupom?');"><button type="submit" class="botao-texto">Apagar</button></form>
+            </div>
+        </article>
+    {% else %}
+        <p class="linhas-info">Nenhum cupom cadastrado.</p>
+    {% endfor %}
+    </div>
+
+    <details class="card" id="novo-cupom" {{ 'open' if not cupons }}>
+        <summary><strong>Cadastrar cupom à mão</strong></summary>
+        <form action="{{ url_for('whatsapp_cupons_adicionar') }}" method="post">
+            <label class="rotulo">Loja
+                <select name="loja">{% for loja in lojas %}<option>{{ loja }}</option>{% endfor %}</select>
+            </label>
+            <label class="rotulo">Código
+                <input type="text" name="codigo" placeholder="Ex.: QUERO20">
+            </label>
+            <div class="grade-dois">
+                <label class="rotulo">Desconto
+                    <input type="number" name="desconto" min="0" step="0.01" placeholder="Ex.: 20">
+                </label>
+                <label class="rotulo">Tipo
+                    <select name="desconto_tipo"><option value="%">%</option><option value="R$">R$</option></select>
+                </label>
+                <label class="rotulo">Compra mínima (R$)
+                    <input type="number" name="minimo" min="0" step="0.01">
+                </label>
+                <label class="rotulo">Desconto até (R$)
+                    <input type="number" name="limite" min="0" step="0.01">
+                </label>
+            </div>
+            <label class="rotulo">Descrição
+                <input type="text" name="descricao" placeholder="Ex.: Válido em produtos de casa">
+            </label>
+            <label class="rotulo">Link do cupom ou da loja (opcional)
+                <input type="url" name="link" placeholder="https://...">
+            </label>
+            <label class="rotulo">Válido até (opcional)
+                <input type="date" name="validade" min="{{ hoje }}">
+            </label>
+            <button type="submit" class="botao botao-destaque">CADASTRAR CUPOM</button>
+        </form>
+    </details>
+{% endblock %}
+{% block script %}
+<script>
+    const hoje = {{ hoje|tojson }};
+    let lojaEscolhida = "";
+    let soHoje = false;
+    const cartoes = [...document.querySelectorAll(".cupom")];
+
+    function filtrar() {
+        const busca = document.getElementById("busca-cupom").value.trim().toLowerCase();
+        const preco = parseFloat(document.getElementById("preco-produto").value);
+        const minimo = parseFloat(document.getElementById("desconto-minimo").value);
+        let mostrados = 0;
+        cartoes.forEach((c) => {
+            const passa =
+                (!lojaEscolhida || c.dataset.loja === lojaEscolhida) &&
+                (!busca || c.dataset.codigo.includes(busca)) &&
+                (isNaN(preco) || parseFloat(c.dataset.minimo) <= preco) &&
+                (isNaN(minimo) || parseFloat(c.dataset.desconto) >= minimo) &&
+                (!soHoje || c.dataset.validade === hoje);
+            c.hidden = !passa;
+            if (passa) mostrados += 1;
+        });
+        document.getElementById("contagem-cupons").textContent = mostrados + " de " + cartoes.length + " cupons";
+    }
+
+    document.querySelectorAll(".filtro[data-loja]").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll(".filtro[data-loja]").forEach((x) => x.classList.remove("ativo"));
+        b.classList.add("ativo");
+        lojaEscolhida = b.dataset.loja;
+        filtrar();
+    }));
+    document.getElementById("vencem-hoje").addEventListener("click", (e) => {
+        soHoje = !soHoje;
+        e.target.classList.toggle("ativo", soHoje);
+        e.target.setAttribute("aria-pressed", soHoje ? "true" : "false");
+        filtrar();
+    });
+    ["busca-cupom", "preco-produto", "desconto-minimo"].forEach((id) =>
+        document.getElementById(id).addEventListener("input", filtrar));
+    document.querySelectorAll(".copiar").forEach((b) => b.addEventListener("click", async () => {
+        try {
+            await navigator.clipboard.writeText(b.dataset.codigo);
+            b.textContent = "Copiado";
+        } catch (erro) {
+            b.textContent = b.dataset.codigo;
+        }
+    }));
+    filtrar();
+</script>
+{% endblock %}

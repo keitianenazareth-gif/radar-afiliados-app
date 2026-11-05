@@ -182,6 +182,24 @@ def _minutos(hora: str) -> int:
     return int(horas) * 60 + int(minutos)
 
 
+def proxima_rodada(config: dict, agora: datetime) -> str:
+    """Texto da proxima rodada (ex.: "20:00" ou "amanhã, 07:00"); vazio se nao houver."""
+    minuto = agora.hour * 60 + agora.minute
+    horas = []
+    for hora in config.get("rodadas") or []:
+        try:
+            horas.append((_minutos(hora), hora))
+        except (AttributeError, TypeError, ValueError):
+            continue
+    if not horas:
+        return ""
+    horas.sort()
+    for inicio, hora in horas:
+        if inicio > minuto:
+            return hora
+    return f"amanhã, {horas[0][1]}"
+
+
 def rodada_atual(config: dict, agora: datetime) -> dict | None:
     """A rodada que deve sair agora, ou None. O robo acorda a cada 10 minutos:
     a tolerancia cobre uma execucao perdida, sem mandar rodada muito atrasada."""
@@ -442,7 +460,8 @@ def cupom_valido(cupom: dict, hoje: str | None = None) -> bool:
 
 def adicionar_cupom(loja: str, codigo: str, descricao: str, link: str,
                     validade: str = "", detalhes: str = "", como_ativar: str = "",
-                    uma_vez: bool = False) -> dict:
+                    uma_vez: bool = False, desconto: str = "", desconto_tipo: str = "%",
+                    minimo: str = "", limite: str = "") -> dict:
     cupom = {
         "id": uuid.uuid4().hex[:8],
         "loja": loja or "Outra",
@@ -453,6 +472,12 @@ def adicionar_cupom(loja: str, codigo: str, descricao: str, link: str,
         "detalhes": detalhes.strip(),  # ex.: "Compra mínima R$ 40 · desconto até R$ 20"
         "como_ativar": como_ativar.strip(),  # usado quando nao tem codigo
         "uma_vez": uma_vez,            # cupons do robo saem 1 vez so
+        "desconto": str(desconto).strip(),
+        "desconto_tipo": "R$" if desconto_tipo == "R$" else "%",
+        "minimo": str(minimo).strip(),
+        "limite": str(limite).strip(),
+        "conferido": False,            # a Keiti testou o codigo no carrinho
+        "prioridade": False,           # sai antes dos outros na proxima rodada
         "ultimo_envio": "",            # AAAA-MM-DD
         "criado_em": time.time(),
     }
@@ -460,6 +485,14 @@ def adicionar_cupom(loja: str, codigo: str, descricao: str, link: str,
     cupons.append(cupom)
     _gravar_json(CHAVE_CUPONS, cupons)
     return cupom
+
+
+def atualizar_cupom(cupom_id: str, **campos) -> None:
+    cupons = listar_cupons()
+    for c in cupons:
+        if c.get("id") == cupom_id:
+            c.update(campos)
+    _gravar_json(CHAVE_CUPONS, cupons)
 
 
 def remover_cupom(cupom_id: str) -> None:
@@ -472,6 +505,7 @@ def marcar_cupom_enviado(cupom_id: str) -> None:
     for c in cupons:
         if c.get("id") == cupom_id:
             c["ultimo_envio"] = hoje
+            c["prioridade"] = False
     # Aproveita pra tirar os vencidos e os do robo que ja sairam (uma_vez).
     _gravar_json(CHAVE_CUPONS, [
         c for c in cupons

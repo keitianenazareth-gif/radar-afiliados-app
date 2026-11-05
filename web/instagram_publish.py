@@ -27,6 +27,7 @@ Fluxo da API (2 passos):
 """
 
 import os
+import re
 import time
 import requests
 
@@ -34,6 +35,7 @@ INSTAGRAM_USER_ID = os.environ.get("INSTAGRAM_USER_ID", "").strip()
 INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
 
 API_VERSION = "v22.0"
+MAX_ITENS_CARROSSEL = 10
 # Token do "login pelo Instagram" (comeca com IG) so funciona neste endereco;
 # token do login pelo Facebook usa o outro.
 _HOST = "graph.instagram.com" if INSTAGRAM_ACCESS_TOKEN.startswith("IG") else "graph.facebook.com"
@@ -142,8 +144,88 @@ def publicar_container(creation_id: str) -> str:
     )
     dados = resp.json()
     if resp.status_code >= 400 or "id" not in dados:
-        raise InstagramPublishError(f"Erro ao publicar o Reel: {dados}")
+        raise InstagramPublishError(f"Erro ao publicar: {dados}")
     return dados["id"]
+
+
+def url_para_foto(url: str) -> str:
+    """O Instagram so aceita foto JPEG. O Cloudinary (Galeria) converte sozinho
+    quando o endereco termina em .jpg."""
+    if "res.cloudinary.com" in url and "/image/upload/" in url:
+        return re.sub(r"\.(png|webp|heic|heif|gif|jpeg|avif)(\?.*)?$", ".jpg", url, flags=re.IGNORECASE)
+    return url
+
+
+def _criar_container(campos: dict, descricao: str) -> str:
+    _checar_credenciais()
+    resp = requests.post(
+        f"{BASE_URL}/{INSTAGRAM_USER_ID}/media",
+        data={**campos, "access_token": INSTAGRAM_ACCESS_TOKEN},
+        timeout=60,
+    )
+    dados = resp.json()
+    if resp.status_code >= 400 or "id" not in dados:
+        erro = dados.get("error", {}) if isinstance(dados, dict) else {}
+        raise InstagramPublishError(
+            f"Meta recusou {descricao}: {erro.get('error_user_msg') or erro.get('message') or dados}"
+        )
+    return dados["id"]
+
+
+def _esperar_container(creation_id: str, limite_segundos: int = 180) -> None:
+    decorrido = 0
+    while decorrido < limite_segundos:
+        status = checar_status_container(creation_id)
+        if status == "FINISHED":
+            return
+        if status in ("ERROR", "EXPIRED"):
+            raise InstagramPublishError(f"O Instagram não conseguiu processar o arquivo (status={status}).")
+        time.sleep(3)
+        decorrido += 3
+    raise InstagramPublishError("O Instagram demorou demais para processar o arquivo.")
+
+
+def _item_do_carrossel(item: dict) -> str:
+    if item.get("tipo") == "video":
+        campos = {"media_type": "VIDEO", "video_url": item["url"]}
+    else:
+        campos = {"image_url": url_para_foto(item["url"])}
+    return _criar_container({**campos, "is_carousel_item": "true"}, "um item do carrossel")
+
+
+def publicar_midias(itens: list, legenda: str) -> str:
+    """Publica 1 video (Reel), 1 foto ou um carrossel (2 a 10 itens).
+    Cada item: {"tipo": "video"|"imagem", "url": ...}. Devolve o media_id."""
+    if not 1 <= len(itens) <= MAX_ITENS_CARROSSEL:
+        raise InstagramPublishError(f"Escolha de 1 a {MAX_ITENS_CARROSSEL} fotos ou vídeos.")
+    if len(itens) == 1:
+        if itens[0].get("tipo") == "video":
+            return postar_reel(itens[0]["url"], legenda)
+        container = _criar_container({"image_url": url_para_foto(itens[0]["url"]), "caption": legenda}, "a foto")
+        _esperar_container(container)
+        return publicar_container(container)
+    filhos = [_item_do_carrossel(item) for item in itens]
+    for filho in filhos:
+        _esperar_container(filho, 120)
+    container = _criar_container(
+        {"media_type": "CAROUSEL", "children": ",".join(filhos), "caption": legenda}, "o carrossel"
+    )
+    _esperar_container(container)
+    return publicar_container(container)
+
+
+def dados_da_midia(media_id: str) -> dict:
+    """Devolve shortcode (o codigo do post) e permalink (o link dele)."""
+    _checar_credenciais()
+    resp = requests.get(
+        f"{BASE_URL}/{media_id}",
+        params={"fields": "shortcode,permalink", "access_token": INSTAGRAM_ACCESS_TOKEN},
+        timeout=30,
+    )
+    dados = resp.json()
+    if resp.status_code >= 400:
+        raise InstagramPublishError("Publicado, mas a Meta não devolveu o link do post.")
+    return {"shortcode": dados.get("shortcode", ""), "permalink": dados.get("permalink", "")}
 
 
 def postar_reel(

@@ -26,6 +26,7 @@ from flask import (
     request,
     url_for,
 )
+import requests
 from werkzeug.utils import secure_filename
 
 import produto_manual
@@ -119,6 +120,41 @@ def _texto_preco(dados):
     return str(dados.get("preco_texto") or preco or "")
 
 
+def _resumo_robos():
+    """Numeros de hoje para o Inicio e a tela de Robos. Se o banco falhar, mostra zerado com aviso."""
+    import robo_instagram as ri
+    import whatsapp_dados as wd
+
+    resumo = {"whatsapp_ligado": False, "proxima": "", "enviadas": 0, "meta": 0, "por_rodada": 0,
+              "fila": 0, "cupons": 0, "ig_ligado": False, "direct_ligado": False, "ig_esperando": 0,
+              "ig_quando": "", "ig_erro": ""}
+    try:
+        agora = wd.agora_brasil()
+        config = wd.ler_config()
+        hoje = agora.strftime("%d/%m")
+        resumo.update(
+            whatsapp_ligado=bool(config.get("ativo")),
+            proxima=wd.proxima_rodada(config, agora),
+            por_rodada=int(config.get("ofertas_por_rodada") or 0),
+            meta=len(config.get("rodadas") or []) * int(config.get("ofertas_por_rodada") or 0),
+            enviadas=sum(1 for e in wd.ler_log() if e.get("ok") and e.get("tipo") in ("shopee", "fila")
+                         and str(e.get("quando", "")).startswith(hoje)),
+            fila=len(wd.listar_fila()),
+            cupons=sum(1 for c in wd.listar_cupons() if wd.cupom_valido(c)),
+        )
+        ig_config, execucao = ri.ler_config(), ri.ler_execucao()
+        resumo.update(
+            ig_ligado=bool(ig_config.get("ativo")),
+            direct_ligado=bool(ig_config.get("direct_ativo")),
+            ig_esperando=int(execucao.get("esperando") or 0),
+            ig_quando=str(execucao.get("quando") or "")[-5:],
+            ig_erro=execucao.get("erro") or "",
+        )
+    except RuntimeError as erro:
+        return resumo, str(erro)
+    return resumo, ""
+
+
 # ---------------------------------------------------------------------------
 # Paginas
 # ---------------------------------------------------------------------------
@@ -133,7 +169,15 @@ def principal():
     plataformas_manuais = [
         (slug, nome) for slug, (nome, _aviso, _link) in PLATAFORMAS_MANUAIS.items()
     ]
-    return render_template("principal.html", plataformas_manuais=plataformas_manuais)
+    resumo, erro_dados = _resumo_robos()
+    return render_template("principal.html", plataformas_manuais=plataformas_manuais,
+                           resumo=resumo, erro_dados=erro_dados)
+
+
+@app.route("/robos")
+def robos():
+    resumo, erro_dados = _resumo_robos()
+    return render_template("robos.html", resumo=resumo, erro_dados=erro_dados)
 
 
 @app.route("/shopee")
@@ -530,33 +574,198 @@ def instagram_status():
         return jsonify({"ok": False, "erro": str(erro)})
 
 
-@app.route("/galeria/postar-instagram/<item_id>", methods=["POST"])
-def galeria_postar_instagram(item_id):
-    """Posta um item ja salvo na Galeria como Reel no Instagram
-    (@clubedoquero). Sincrono - o Instagram processa o video antes de
-    publicar (pode levar ate uns 3 minutos)."""
+def _midias_escolhidas(ids):
+    """Itens da Galeria na ordem escolhida."""
     from web import galeria
 
-    itens = galeria.listar_itens()
-    item = next((i for i in itens if i["id"] == item_id), None)
+    por_id = {item["id"]: item for item in galeria.listar_itens()}
+    return [por_id[i] for i in ids if i in por_id]
 
-    if item is None:
-        flash("Item não encontrado na Galeria.")
-    elif item.get("tipo") != "video":
-        flash("Só dá pra postar vídeo no Instagram (esse item é imagem).")
-    else:
-        legenda = request.form.get("legenda", "").strip()
+
+def _form_publicar(fonte=None):
+    """Valores da tela: do formulario, ou vazios ao abrir."""
+    fonte = fonte or {}
+    return {
+        "modo": fonte.get("modo") or "produtos",
+        "nome": fonte.get("nome", ""),
+        "legenda": fonte.get("legenda", ""),
+        "palavra": fonte.get("palavra", ""),
+        "produtos": fonte.get("produtos") or [],
+        "ids": fonte.get("ids") or [],
+    }
+
+
+def _pagina_publicar(form, problemas=None):
+    from web import galeria
+
+    import robo_instagram as ri
+
+    itens, erro_galeria, publicados, robo_ligado = [], "", [], False
+    try:
+        itens = galeria.listar_itens()
+    except galeria.GaleriaError as erro:
+        erro_galeria = str(erro)
+    try:
+        publicados = ri.ler_publicados()[:5]
+        robo_ligado = bool(ri.ler_config().get("ativo"))
+    except RuntimeError as erro:
+        erro_galeria = erro_galeria or str(erro)
+    return render_template(
+        "instagram_publicar.html", form=form, itens=itens, erro_galeria=erro_galeria,
+        publicados=publicados, problemas=problemas or [], robo_ligado=robo_ligado,
+        max_produtos=ri.MAX_PRODUTOS,
+    )
+
+
+def _salvar_arquivos_enviados():
+    """Sobe para a Galeria os arquivos enviados na hora. Devolve os ids."""
+    from web import galeria
+
+    ids = []
+    for arquivo in request.files.getlist("arquivos"):
+        if not arquivo or not arquivo.filename:
+            continue
+        nome = secure_filename(arquivo.filename) or "arquivo"
+        tipo = "video" if (arquivo.mimetype or "").startswith("video/") else "imagem"
+        caminho = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4().hex}-{nome}")
+        arquivo.save(caminho)
         try:
-            from web.instagram_publish import InstagramPublishError, postar_reel
+            ids.append(galeria.adicionar_item(caminho, tipo, nome_original=nome)["id"])
+        finally:
+            os.remove(caminho)
+    return ids
 
-            media_id = postar_reel(item["url"], legenda)
-            flash(f"✅ Postado no Instagram! (id: {media_id})")
-        except InstagramPublishError as erro:
-            flash(f"Não foi possível postar no Instagram: {erro}")
-        except Exception as erro:  # noqa: BLE001
-            flash(f"Erro ao postar no Instagram: {erro}")
 
-    return redirect(url_for("galeria_pagina"))
+def _completar_produtos(titulos, fotos, links):
+    """Se faltou nome ou foto, tenta pegar do link. Nunca falha."""
+    for n, link in enumerate(links):
+        if link.strip() and not (titulos[n].strip() and fotos[n].strip()):
+            info = produto_manual.buscar_metadados_link(link.strip())
+            titulos[n] = titulos[n].strip() or info.get("nome", "")[:80]
+            fotos[n] = fotos[n].strip() or info.get("imagem", "")
+
+
+@app.route("/instagram-publicar", methods=["GET", "POST"])
+def instagram_publicar():
+    import json
+
+    if request.method == "GET":
+        escolhido = request.args.get("item", "")
+        return _pagina_publicar(_form_publicar({"ids": [escolhido] if escolhido else []}))
+
+    if request.form.get("editar"):  # voltou da conferencia
+        try:
+            produtos = json.loads(request.form.get("produtos_json") or "[]")
+        except ValueError:
+            produtos = []
+        return _pagina_publicar(_form_publicar({
+            **request.form.to_dict(), "produtos": produtos,
+            "ids": request.form.get("ids", "").split(",") if request.form.get("ids") else [],
+        }))
+
+    import robo_instagram as ri
+    from web import galeria
+    from web.instagram_publish import MAX_ITENS_CARROSSEL, url_para_foto
+
+    modo = "diferente" if request.form.get("modo") == "diferente" else "produtos"
+    ids = [i for i in request.form.get("ordem", "").split(",") if i] or request.form.getlist("midia")
+    problemas = []
+    try:
+        ids += _salvar_arquivos_enviados()
+        midias = _midias_escolhidas(ids)
+    except galeria.GaleriaError as erro:
+        midias, problemas = [], [str(erro)]
+    if not problemas and not 1 <= len(midias) <= MAX_ITENS_CARROSSEL:
+        problemas.append(f"Escolha de 1 a {MAX_ITENS_CARROSSEL} fotos ou vídeos.")
+
+    titulos = request.form.getlist("produto_titulo")
+    fotos = request.form.getlist("produto_foto")
+    links = request.form.getlist("produto_link")
+    _completar_produtos(titulos, fotos, links)
+    foto_padrao = ""
+    if midias:
+        foto_padrao = (url_para_foto(midias[0]["url"]) if midias[0].get("tipo") != "video"
+                       else midias[0].get("thumbnail_url") or "")
+    produtos, erros = ri.produtos_do_formulario(titulos, fotos, links, foto_padrao)
+    problemas += erros
+    if modo == "produtos" and not produtos and not erros:
+        problemas.append("Coloque pelo menos 1 produto, ou escolha Criar diferente.")
+
+    legenda = request.form.get("legenda", "").strip()
+    if len(legenda) > 2200:
+        problemas.append("A legenda passa de 2.200 letras.")
+
+    form = {"modo": modo, "nome": request.form.get("nome", "").strip(), "legenda": legenda,
+            "palavra": request.form.get("palavra", "").strip(), "ids": [m["id"] for m in midias]}
+    if problemas:
+        rascunho = [{"titulo": t, "foto": f, "link": l} for t, f, l in zip(titulos, fotos, links)
+                    if t.strip() or f.strip() or l.strip()]
+        return _pagina_publicar(_form_publicar({**form, "produtos": rascunho}), problemas)
+
+    return render_template(
+        "instagram_conferir.html", form=form, midias=midias, produtos=produtos,
+        produtos_json=json.dumps(produtos, ensure_ascii=False), token=uuid.uuid4().hex,
+        sem_quero=bool(produtos) and "quero" not in legenda.lower(),
+    )
+
+
+@app.route("/instagram-publicar/confirmar", methods=["POST"])
+def instagram_publicar_confirmar():
+    import json
+
+    import robo_instagram as ri
+    from web import galeria
+    from web.instagram_publish import InstagramPublishError, dados_da_midia, publicar_midias
+
+    token = request.form.get("token", "")
+    try:
+        produtos = json.loads(request.form.get("produtos_json") or "[]")
+        midias = _midias_escolhidas(request.form.get("ids", "").split(","))
+        if not token or not midias:
+            flash("⚠️ Não encontrei o que publicar. Monte o post de novo.")
+            return redirect(url_for("instagram_publicar"))
+        if not ri.reservar_publicacao(token):
+            flash("⚠️ Este post já foi enviado. Confira a lista abaixo antes de montar outro.")
+            return redirect(url_for("instagram_publicar"))
+    except (ValueError, RuntimeError, galeria.GaleriaError) as erro:
+        flash(f"⚠️ Não consegui publicar: {erro}")
+        return redirect(url_for("instagram_publicar"))
+
+    legenda = request.form.get("legenda", "")
+    nome = request.form.get("nome", "") or legenda[:40] or "Post"
+    try:
+        media_id = publicar_midias(midias, legenda)
+    except InstagramPublishError as erro:
+        ri.liberar_publicacao(token)
+        flash(f"⚠️ O post não foi publicado: {erro}")
+        return redirect(url_for("instagram_publicar"))
+    except Exception as erro:  # noqa: BLE001
+        # Pode ter saido mesmo assim: nao libera, para nao publicar em dobro.
+        flash(f"⚠️ Falha sem resposta clara ({type(erro).__name__}). Confira no Instagram "
+              "se o post saiu antes de tentar de novo.")
+        return redirect(url_for("instagram_publicar"))
+
+    registro = {"nome": nome[:80], "permalink": "", "produtos": len(produtos), "ligado": False}
+    try:
+        info = dados_da_midia(media_id)
+        registro["permalink"] = info["permalink"]
+        if produtos and info["shortcode"]:
+            ri.ligar_post(info["shortcode"], nome, produtos, request.form.get("palavra", ""))
+            registro["ligado"] = True
+    except (InstagramPublishError, RuntimeError, requests.RequestException, ValueError) as erro:
+        registro["erro"] = str(erro)[:200]
+    try:
+        ri.registrar_publicado(registro)
+    except RuntimeError:
+        pass
+
+    if registro["ligado"]:
+        flash(f"✅ Publicado, e o robô do QUERO já cuida deste post ({len(produtos)} produtos).")
+    elif produtos:
+        flash("⚠️ Publicado, mas não consegui ligar ao robô do QUERO. Cadastre o post em Robôs > Instagram.")
+    else:
+        flash("✅ Publicado.")
+    return redirect(url_for("instagram_publicar"))
 
 
 # ---------------------------------------------------------------------------
@@ -733,7 +942,7 @@ def whatsapp_fila_adicionar():
         if em_json:
             return jsonify({"ok": ok, "situacao": situacao, "mensagem": mensagem})
         flash(mensagem)
-        return redirect(url_for("whatsapp") + "#fila")
+        return redirect(url_for("ofertas") + "#fila")
 
     link = request.form.get("link", "").strip()
     if not link.startswith("http"):
@@ -803,7 +1012,7 @@ def whatsapp_fila_remover(item_id):
     import whatsapp_dados as wd
 
     wd.remover_da_fila(item_id)
-    return redirect(url_for("whatsapp") + "#fila")
+    return redirect(url_for("ofertas") + "#fila")
 
 
 @app.route("/whatsapp/fila/mover/<item_id>/<direcao>", methods=["POST"])
@@ -811,7 +1020,7 @@ def whatsapp_fila_mover(item_id, direcao):
     import whatsapp_dados as wd
 
     wd.mover_na_fila(item_id, -1 if direcao == "cima" else 1)
-    return redirect(url_for("whatsapp") + "#fila")
+    return redirect(url_for("ofertas") + "#fila")
 
 
 @app.route("/whatsapp/cupons/adicionar", methods=["POST"])
@@ -826,7 +1035,7 @@ def whatsapp_cupons_adicionar():
         if em_json:
             return jsonify({"ok": ok, "situacao": situacao, "mensagem": mensagem})
         flash(mensagem)
-        return redirect(url_for("whatsapp") + "#cupons")
+        return redirect(url_for("cupons"))
 
     codigo = request.form.get("codigo", "").strip()
     descricao = request.form.get("descricao", "").strip()
@@ -841,11 +1050,13 @@ def whatsapp_cupons_adicionar():
         link = wd.aplicar_tag_amazon(link, wd.ler_config().get("amazon_tag", ""))
     wd.adicionar_cupom(loja, codigo, descricao, link, request.form.get("validade", ""),
                        request.form.get("detalhes", ""), request.form.get("como_ativar", ""),
-                       uma_vez=em_json)
+                       uma_vez=em_json, desconto=request.form.get("desconto", ""),
+                       desconto_tipo=request.form.get("desconto_tipo", "%"),
+                       minimo=request.form.get("minimo", ""), limite=request.form.get("limite", ""))
     if em_json:
         return _responder(True, f"✅ Cupom cadastrado: {descricao or codigo}", "adicionado")
-    return _responder(True, "✅ Cupom cadastrado. Ele sai no próximo lote (no máximo 1x por "
-                      "dia, até vencer).", "adicionado")
+    return _responder(True, "✅ Cupom cadastrado. Ele sai em uma das próximas rodadas (no máximo "
+                      "1x por dia, até vencer).", "adicionado")
 
 
 @app.route("/whatsapp/cupons/remover/<cupom_id>", methods=["POST"])
@@ -853,7 +1064,7 @@ def whatsapp_cupons_remover(cupom_id):
     import whatsapp_dados as wd
 
     wd.remover_cupom(cupom_id)
-    return redirect(url_for("whatsapp") + "#cupons")
+    return redirect(url_for("cupons"))
 
 
 def _inteiro(valor, padrao, minimo, maximo):
@@ -867,9 +1078,7 @@ def _inteiro(valor, padrao, minimo, maximo):
 def whatsapp_ajustes():
     import whatsapp_dados as wd
 
-    # Horarios separados por virgula ou espaco; o que nao for hora valida fica de fora.
-    rodadas = sorted({h for h in re.split(r"[,;\s]+", request.form.get("rodadas", ""))
-                      if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", h)})
+    rodadas = _horarios(request.form.get("rodadas"))
 
     por_lote = _inteiro(request.form.get("por_lote"), 3, 1, 10)
 
@@ -898,6 +1107,128 @@ def whatsapp_ajustes():
     else:
         flash("✅ Ajustes salvos.")
     return redirect(url_for("whatsapp") + "#ajustes")
+
+
+def _horarios(texto):
+    """Horarios separados por virgula ou espaco; o que nao for hora valida fica de fora."""
+    return sorted({h for h in re.split(r"[,;\s]+", texto or "")
+                   if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", h)})
+
+
+# ------------------------------------------------------------ cupons
+
+@app.route("/cupons")
+def cupons():
+    import whatsapp_dados as wd
+
+    hoje, lista, erro_dados = wd.agora_brasil().strftime("%Y-%m-%d"), [], ""
+    try:
+        lista = wd.listar_cupons()
+    except RuntimeError as erro:
+        erro_dados = str(erro)
+    # Validos primeiro, os que vencem antes em cima; vencidos no fim.
+    lista = sorted(lista, key=lambda c: (bool(c.get("validade") and c["validade"] < hoje),
+                                         not c.get("validade"), c.get("validade") or ""))
+    return render_template(
+        "cupons.html", cupons=lista, lojas=wd.LOJAS, hoje=hoje, erro_dados=erro_dados,
+        validos=sum(1 for c in lista if wd.cupom_valido(c, hoje)),
+        conferidos=sum(1 for c in lista if c.get("conferido") and wd.cupom_valido(c, hoje)),
+    )
+
+
+@app.route("/cupons/<cupom_id>/conferir", methods=["POST"])
+def cupom_conferir(cupom_id):
+    import whatsapp_dados as wd
+
+    wd.atualizar_cupom(cupom_id, conferido=request.form.get("conferido") == "1")
+    return redirect(url_for("cupons"))
+
+
+@app.route("/cupons/<cupom_id>/usar", methods=["POST"])
+def cupom_usar(cupom_id):
+    import whatsapp_dados as wd
+
+    wd.atualizar_cupom(cupom_id, prioridade=True)
+    flash("✅ Este cupom sai primeiro na próxima rodada com espaço para cupom.")
+    return redirect(url_for("cupons"))
+
+
+# ------------------------------------------------------------ ofertas
+
+@app.route("/ofertas")
+def ofertas():
+    import robo_whatsapp
+    import whatsapp_dados as wd
+
+    erro_dados, fila = "", []
+    config = dict(wd.CONFIG_PADRAO)
+    try:
+        config, fila = wd.ler_config(), wd.listar_fila()
+    except RuntimeError as erro:
+        erro_dados = str(erro)
+    categorias = [c for c in (config.get("categorias") or []) if c][:12]
+    return render_template(
+        "ofertas.html", config=config, fila=fila, erro_dados=erro_dados, lojas=wd.LOJAS,
+        categorias=categorias, faltando=robo_whatsapp.whatsapp_configurado(),
+        proxima=wd.proxima_rodada(config, wd.agora_brasil()),
+    )
+
+
+@app.route("/ofertas/ritmo", methods=["POST"])
+def ofertas_ritmo():
+    import whatsapp_dados as wd
+
+    rodadas = _horarios(request.form.get("rodadas"))
+    if not rodadas:
+        flash("⚠️ Nada foi salvo: coloque pelo menos um horário, como 07:00.")
+        return redirect(url_for("ofertas"))
+    wd.salvar_config({"rodadas": rodadas,
+                      "ofertas_por_rodada": _inteiro(request.form.get("ofertas_por_rodada"), 20, 1, 30)})
+    flash("✅ Ritmo salvo.")
+    return redirect(url_for("ofertas"))
+
+
+@app.route("/api/ofertas/adicionar-shopee", methods=["POST"])
+def api_ofertas_adicionar_shopee():
+    """O + do garimpo: poe o produto na fila, com link de afiliado."""
+    import robo_whatsapp
+    import whatsapp_dados as wd
+
+    produto = request.get_json(force=True) or {}
+    nome = str(produto.get("productName") or "").strip()
+    if not nome:
+        return jsonify({"ok": False, "mensagem": "Produto sem nome: não adicionei."})
+    try:
+        if wd.produto_repetido(nome) == "fila":
+            return jsonify({"ok": False, "mensagem": f"Já está na fila: {nome[:60]}"})
+        link = robo_whatsapp.link_afiliado_shopee(produto)
+        if not link:
+            return jsonify({"ok": False, "mensagem": "A Shopee não devolveu o link deste produto."})
+        preco = numero(produto.get("priceMin"))
+        wd.adicionar_na_fila("Shopee", link, nome, f"{preco:.2f}".replace(".", ",") if preco else "",
+                             str(produto.get("imageUrl") or ""))
+    except RuntimeError as erro:
+        return jsonify({"ok": False, "mensagem": f"Não consegui salvar: {erro}"})
+    return jsonify({"ok": True, "mensagem": f"Na fila: {nome[:60]}"})
+
+
+@app.route("/api/ofertas/converter", methods=["POST"])
+def api_ofertas_converter():
+    from shopee import gerar_link_curto
+
+    dados = request.get_json(force=True) or {}
+    itens = []
+    for link in [l.strip() for l in str(dados.get("links") or "").splitlines() if l.strip()][:20]:
+        if not link.startswith("https://"):
+            itens.append({"link": link, "situacao": "⚠️ Não é um link https: ignorado"})
+        elif "shopee" not in link.lower():
+            itens.append({"link": link, "situacao": "Outra loja: ficou como estava"})
+        else:
+            try:
+                itens.append({"link": gerar_link_curto(link, ["radar"]), "situacao": "✅ Shopee: seu link"})
+            except (RuntimeError, requests.RequestException) as erro:
+                itens.append({"link": link, "situacao": f"⚠️ Não converti: {str(erro)[:80]}"})
+    return jsonify({"itens": itens})
 
 
 # ------------------------------------------------------------ robo do Instagram
@@ -963,9 +1294,7 @@ def instagram_robo_post():
     if problemas:
         flash("⚠️ Nada foi salvo. " + " ".join(problemas))
         return redirect(url_for("instagram_robo"))
-    posts = dict(ri.ler_config().get("posts") or {})
-    posts[codigo] = {"nome": request.form.get("nome", "").strip()[:80], "produtos": produtos}
-    ri.salvar_config({"posts": posts})
+    ri.ligar_post(codigo, request.form.get("nome", ""), produtos, request.form.get("palavra", ""))
     flash("✅ Post salvo.")
     return redirect(url_for("instagram_robo"))
 

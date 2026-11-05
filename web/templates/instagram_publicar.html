@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block titulo %}Publicar no Instagram - Radar Afiliados{% endblock %}
+{% block conteudo %}
+<div class="wa-pagina">
+    <h1>Publicar no Instagram</h1>
+    <p class="subtitulo">Monte o post aqui e o robô do QUERO já fica sabendo dos produtos dele</p>
+
+    {% for mensagem in get_flashed_messages() %}
+    <p class="aviso">{{ mensagem }}</p>
+    {% endfor %}
+    {% for problema in problemas %}
+    <p class="aviso aviso-amarelo">⚠️ {{ problema }}</p>
+    {% endfor %}
+    {% if erro_galeria %}
+    <div class="card card-erro"><strong>⚠️ Não consegui carregar a Galeria</strong>
+        <p class="linhas-info">{{ erro_galeria }}</p></div>
+    {% endif %}
+
+    <form action="{{ url_for('instagram_publicar') }}" method="post" enctype="multipart/form-data" id="form-publicar">
+        <div class="abas" role="radiogroup" aria-label="Tipo de post">
+            <label class="aba"><input type="radio" name="modo" value="produtos" {{ 'checked' if form.modo != 'diferente' }}>
+                <span>Post de produtos</span></label>
+            <label class="aba"><input type="radio" name="modo" value="diferente" {{ 'checked' if form.modo == 'diferente' }}>
+                <span>Criar diferente</span></label>
+        </div>
+        <p class="linhas-info" id="ajuda-modo"></p>
+
+        <div class="card">
+            <strong>1. Fotos ou vídeos</strong>
+            <p class="linhas-info">Uma foto, um vídeo (Reel) ou um carrossel de até 10. Fotos em pé muito compridas, como print de celular, podem ser recusadas: o limite do Instagram é 4:5.</p>
+            <label class="rotulo" for="arquivos">Enviar do aparelho</label>
+            <input type="file" id="arquivos" name="arquivos" accept="image/*,video/*" multiple>
+            {% if itens %}
+            <p class="rotulo">Ou toque para escolher da Galeria. O número mostra a ordem.</p>
+            <input type="hidden" name="ordem" id="ordem" value="{{ form.ids|join(',') }}">
+            <div class="grade-midia">
+                {% for item in itens %}
+                <button type="button" class="midia-opcao" data-id="{{ item.id }}" aria-pressed="false"
+                        aria-label="Escolher {{ item.nome_original }}">
+                    <img src="{{ item.thumbnail_url or item.url }}" alt="" loading="lazy">
+                    {% if item.tipo == 'video' %}<span class="midia-tipo">vídeo</span>{% endif %}
+                    <span class="midia-numero"></span>
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <strong>2. Legenda</strong>
+            <label class="rotulo" for="legenda">O que vai aparecer no post</label>
+            <textarea id="legenda" name="legenda" maxlength="2200" style="min-height:120px">{{ form.legenda }}</textarea>
+            <label class="rotulo" for="nome">Nome do post (só para você, opcional)</label>
+            <input type="text" id="nome" name="nome" value="{{ form.nome }}" maxlength="80">
+        </div>
+
+        <div class="card">
+            <strong>3. Produtos</strong>
+            <p class="linhas-info" id="ajuda-produtos"></p>
+            <div id="produtos">
+                {% for p in form.produtos %}
+                <div class="produto-linha">
+                    <label class="rotulo">Link de afiliado<input type="url" name="produto_link" value="{{ p.link }}" placeholder="https://..."></label>
+                    <label class="rotulo">Nome<input type="text" name="produto_titulo" value="{{ p.titulo }}" maxlength="80"></label>
+                    <label class="rotulo">Link da foto (opcional)<input type="url" name="produto_foto" value="{{ p.foto }}" placeholder="https://..."></label>
+                    <button type="button" class="botao botao-secundario tirar-produto">Tirar este produto</button>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="botao botao-destaque" id="mais-produto">+ Adicionar produto</button>
+            <p class="linhas-info">Se deixar nome ou foto em branco, tento pegar pelo link. Sem foto, o cartão usa a primeira foto do post.</p>
+            <label class="rotulo" for="palavra">Outra palavra além de QUERO (opcional)</label>
+            <input type="text" id="palavra" name="palavra" value="{{ form.palavra }}" maxlength="30" placeholder="Ex.: LINK">
+            {% if not robo_ligado %}
+            <p class="aviso aviso-amarelo">O robô do QUERO está desligado: o post fica pronto, mas só responde depois de ligar em Robôs.</p>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="botao botao-primario botao-largo">VER COMO VAI FICAR</button>
+        <p class="linhas-info">Nada é publicado neste passo.</p>
+    </form>
+
+    {% if publicados %}
+    <div class="card">
+        <strong>Últimos publicados por aqui</strong>
+        {% for p in publicados %}
+        <div class="wa-log">
+            <span class="linhas-info">{{ p.quando }}</span>
+            <span>{% if p.permalink %}<a href="{{ p.permalink }}" target="_blank" rel="noopener" class="link-pequeno">{{ p.nome }}</a>{% else %}{{ p.nome }}{% endif %}</span>
+            <span class="linhas-info">{% if p.ligado %}Robô do QUERO ligado, {{ p.produtos }} produtos{% elif p.produtos %}⚠️ Sem ligação com o robô{% else %}Sem produtos{% endif %}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<template id="modelo-produto">
+    <div class="produto-linha">
+        <label class="rotulo">Link de afiliado<input type="url" name="produto_link" placeholder="https://..."></label>
+        <label class="rotulo">Nome<input type="text" name="produto_titulo" maxlength="80"></label>
+        <label class="rotulo">Link da foto (opcional)<input type="url" name="produto_foto" placeholder="https://..."></label>
+        <button type="button" class="botao botao-secundario tirar-produto">Tirar este produto</button>
+    </div>
+</template>
+{% endblock %}
+{% block script %}
+<script>
+    const MAX_PRODUTOS = {{ max_produtos }};
+    const caixaProdutos = document.getElementById("produtos");
+    const campoOrdem = document.getElementById("ordem");
+
+    function atualizarModo() {
+        const diferente = document.querySelector('input[name="modo"]:checked').value === "diferente";
+        document.getElementById("ajuda-modo").textContent = diferente
+            ? "Para aviso, convite ou dica. Os produtos são opcionais: sem eles, o robô do QUERO não responde neste post."
+            : "Para achadinhos: quem comentar QUERO recebe os links no Direct.";
+        document.getElementById("ajuda-produtos").textContent = diferente
+            ? "Opcional. Só coloque se quiser que o robô mande links neste post. Até " + MAX_PRODUTOS + "."
+            : "Quem comentar QUERO recebe estes produtos. Até " + MAX_PRODUTOS + ".";
+    }
+
+    function adicionarProduto() {
+        if (caixaProdutos.children.length >= MAX_PRODUTOS) return;
+        caixaProdutos.appendChild(document.getElementById("modelo-produto").content.cloneNode(true));
+    }
+
+    document.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListener("change", atualizarModo));
+    document.getElementById("mais-produto").addEventListener("click", adicionarProduto);
+    caixaProdutos.addEventListener("click", (e) => {
+        if (e.target.classList.contains("tirar-produto")) e.target.closest(".produto-linha").remove();
+    });
+
+    function desenharOrdem() {
+        const ids = campoOrdem.value ? campoOrdem.value.split(",") : [];
+        document.querySelectorAll(".midia-opcao").forEach((b) => {
+            const pos = ids.indexOf(b.dataset.id);
+            b.setAttribute("aria-pressed", pos >= 0 ? "true" : "false");
+            b.querySelector(".midia-numero").textContent = pos >= 0 ? pos + 1 : "";
+        });
+    }
+
+    if (campoOrdem) {
+        document.querySelectorAll(".midia-opcao").forEach((b) => b.addEventListener("click", () => {
+            let ids = campoOrdem.value ? campoOrdem.value.split(",") : [];
+            ids = ids.includes(b.dataset.id) ? ids.filter((i) => i !== b.dataset.id) : ids.concat(b.dataset.id);
+            campoOrdem.value = ids.join(",");
+            desenharOrdem();
+        }));
+        desenharOrdem();
+    }
+
+    if (!caixaProdutos.children.length) adicionarProduto();
+    atualizarModo();
+</script>
+{% endblock %}

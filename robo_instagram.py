@@ -47,6 +47,8 @@ CHAVE_LOG = "instagram:log"
 CHAVE_EXECUCAO = "instagram:execucao"
 CHAVE_TRAVA = "instagram:trava"
 CHAVE_DIRECT = "instagram:direct"
+CHAVE_PUBLICADOS = "instagram:publicados"
+MAX_PUBLICADOS = 30
 
 DIAS_LIMITE_META = 7
 DIAS_GUARDAR_CODIGO = 14
@@ -107,6 +109,14 @@ def eh_quero(texto: str) -> bool:
     """So o pedido curto: emoji e pontuacao nao contam; "nao quero" fica de fora."""
     limpo = " ".join(re.sub(r"[^a-z ]+", " ", dados.normalizar(texto)).split())
     return bool(_VARIACOES.fullmatch(limpo))
+
+
+def comentario_pede(texto: str, post: dict) -> bool:
+    """QUERO sempre vale; o post tambem pode ter uma palavra propria."""
+    if eh_quero(texto):
+        return True
+    palavra = " ".join(dados.normalizar(post.get("palavra") or "").split())
+    return bool(palavra) and " ".join(dados.normalizar(texto or "").split()) == palavra
 
 
 # ---------------------------------------------------------------- dados
@@ -179,6 +189,56 @@ def ler_produtos(texto: str) -> tuple:
     if not produtos and not problemas:
         problemas.append("Coloque pelo menos 1 produto.")
     return produtos, problemas
+
+
+def produtos_do_formulario(titulos: list, fotos: list, links: list, foto_padrao: str = "") -> tuple:
+    """Linhas da tela de publicar. Sem foto, o cartao usa a primeira foto do post.
+    Devolve (produtos, problemas)."""
+    produtos, problemas = [], []
+    for numero, (titulo, foto, link) in enumerate(zip(titulos, fotos, links), start=1):
+        titulo, foto, link = titulo.strip(), foto.strip(), link.strip()
+        if not (titulo or foto or link):
+            continue
+        foto = foto or foto_padrao
+        if not titulo or not link:
+            problemas.append(f"Produto {numero}: preencha o nome e o link.")
+        elif len(titulo) > 80:
+            problemas.append(f"Produto {numero}: o nome passa de 80 letras.")
+        elif not link.startswith("https://") or not foto.startswith("https://"):
+            problemas.append(f"Produto {numero}: os links precisam começar com https://.")
+        else:
+            produtos.append({"titulo": titulo, "foto": foto, "link": link})
+    if len(produtos) > MAX_PRODUTOS:
+        problemas.append(f"São no máximo {MAX_PRODUTOS} produtos por post.")
+    return produtos, problemas
+
+
+def ligar_post(codigo: str, nome: str, produtos: list, palavra: str = "") -> None:
+    """Coloca o post na lista do robo (ou atualiza, mantendo a posicao)."""
+    posts = dict(ler_config().get("posts") or {})
+    posts[codigo] = {"nome": nome.strip()[:80], "produtos": produtos, "palavra": palavra.strip()[:30]}
+    salvar_config({"posts": posts})
+
+
+def reservar_publicacao(token: str) -> bool:
+    """Evita publicar duas vezes se o botao for tocado de novo."""
+    return dados._cmd(["SET", f"instagram:publicando:{token}", "1", "NX", "EX", "3600"]) == "OK"
+
+
+def liberar_publicacao(token: str) -> None:
+    dados._cmd(["DEL", f"instagram:publicando:{token}"])
+
+
+def registrar_publicado(registro: dict) -> None:
+    lista = dados._ler_json(CHAVE_PUBLICADOS, [])
+    lista = lista if isinstance(lista, list) else []
+    lista.append({"quando": f"{dados.agora_brasil():%d/%m %H:%M}", **registro})
+    dados._gravar_json(CHAVE_PUBLICADOS, lista[-MAX_PUBLICADOS:])
+
+
+def ler_publicados() -> list:
+    lista = dados._ler_json(CHAVE_PUBLICADOS, [])
+    return list(reversed(lista)) if isinstance(lista, list) else []
 
 
 def codigo_do_post(texto: str) -> str:
@@ -283,13 +343,13 @@ def _procurar_pendentes(config: dict, respondidos: dict) -> tuple:
     """Devolve (pendentes, resumo). Pendente = (codigo do post, codigo do comentario)."""
     pendentes, nao_achados = [], []
     ids = _ids_dos_posts()
-    for codigo in config.get("posts") or {}:
+    for codigo, post in (config.get("posts") or {}).items():
         media_id = ids.get(codigo)
         if not media_id:
             nao_achados.append(codigo)
             continue
         for c in _comentarios(media_id):
-            if (c.get("id") not in respondidos and eh_quero(c.get("text"))
+            if (c.get("id") not in respondidos and comentario_pede(c.get("text"), post)
                     and _dentro_do_prazo(c.get("timestamp"))):
                 pendentes.append((codigo, c["id"]))
     return pendentes, nao_achados

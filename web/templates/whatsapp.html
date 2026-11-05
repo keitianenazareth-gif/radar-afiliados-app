@@ -2,9 +2,16 @@
 {% block titulo %}WhatsApp - Radar Afiliados{% endblock %}
 {% block conteudo %}
 <div class="wa-pagina">
-    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
-    <h1>💬 WHATSAPP</h1>
+    <a class="voltar" href="{{ url_for('robos') }}">&lt; Robôs</a>
+    <h1>WhatsApp</h1>
     <p class="subtitulo">Robô de ofertas no grupo de promoções</p>
+    <nav class="linha atalhos-pagina" aria-label="Nesta página">
+        <a class="etiqueta" href="#grupo">Grupo</a>
+        <a class="etiqueta" href="{{ url_for('ofertas') }}">Fila de ofertas</a>
+        <a class="etiqueta" href="{{ url_for('cupons') }}">Cupons</a>
+        <a class="etiqueta" href="#historico">Histórico</a>
+        <a class="etiqueta" href="#ajustes">Ajustes</a>
+    </nav>
 
     {% for mensagem in get_flashed_messages() %}
     <p class="aviso">{{ mensagem }}</p>
@@ -129,100 +136,6 @@
         {% endfor %}
     </div>
     {% endif %}
-
-    {# ------------------------------------------------ fila #}
-    <details class="card" id="fila" {{ 'open' if fila }}>
-        <summary><strong>🛍️ Fila de ofertas de outras lojas</strong>
-            <span class="contador">{{ fila|length }}</span></summary>
-        <p class="linhas-info">Cole aqui ofertas do Mercado Livre, Amazon, Shein, Temu...
-            Em cada rodada sai a fila, na ordem abaixo, misturada com a Shopee. Depois de enviado, o item sai da fila.</p>
-
-        <form action="{{ url_for('whatsapp_fila_adicionar') }}" method="post" class="sub-card">
-            <input type="url" name="link" placeholder="Link de afiliado do produto (https://...)" required>
-            <select name="loja">
-                <option value="auto">Loja: descobrir pelo link</option>
-                {% for loja in lojas %}<option>{{ loja }}</option>{% endfor %}
-            </select>
-            <input type="text" name="nome" placeholder="Nome (opcional: tento pegar sozinho)">
-            <input type="text" name="preco" placeholder="Preço, ex: 89,90 (opcional)">
-            <input type="text" name="observacao" placeholder="Detalhe extra, ex: Frete grátis (opcional)">
-            <details>
-                <summary class="linhas-info">Foto (opcional)</summary>
-                <input type="url" name="imagem" placeholder="Link da foto (https://...)">
-            </details>
-            {% if not config.amazon_tag %}
-            <p class="linhas-info">💡 Amazon: cadastre sua tag nos Ajustes e o Radar põe a tag sozinho no link.</p>
-            {% endif %}
-            <button type="submit" class="botao botao-destaque">+ ADICIONAR NA FILA</button>
-        </form>
-
-        {% for item in fila %}
-        <div class="wa-item">
-            {% if item.imagem %}<img src="{{ item.imagem }}" alt="" loading="lazy">{% endif %}
-            <div class="wa-item-info">
-                <strong>{{ loop.index }}. {{ item.nome }}</strong>
-                <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}{% if item.vale_ate_texto %} · ⏰ vale até {{ item.vale_ate_texto }}{% endif %}{% if item.prioridade %} · sai primeiro{% endif %}</span>
-                <a href="{{ item.link }}" target="_blank" rel="noopener" class="link-pequeno">abrir link</a>
-            </div>
-            <div class="wa-item-acoes">
-                <form action="{{ url_for('whatsapp_fila_mover', item_id=item.id, direcao='cima') }}" method="post">
-                    <button type="submit" class="botao-toggle" title="Subir" {{ 'disabled' if loop.first }}>▲</button>
-                </form>
-                <form action="{{ url_for('whatsapp_fila_mover', item_id=item.id, direcao='baixo') }}" method="post">
-                    <button type="submit" class="botao-toggle" title="Descer" {{ 'disabled' if loop.last }}>▼</button>
-                </form>
-                <form action="{{ url_for('whatsapp_fila_remover', item_id=item.id) }}" method="post"
-                      onsubmit="return confirm('Tirar da fila?');">
-                    <button type="submit" class="botao-toggle" title="Remover">✕</button>
-                </form>
-            </div>
-        </div>
-        {% else %}
-        <p class="linhas-info">Fila vazia: os lotes saem só com ofertas da Shopee.</p>
-        {% endfor %}
-    </details>
-
-    {# ------------------------------------------------ cupons #}
-    <details class="card" id="cupons" {{ 'open' if cupons }}>
-        <summary><strong>🎟️ Cupons</strong>
-            <span class="contador">{{ cupons|length }}</span></summary>
-        <p class="linhas-info">Cada cupom entra no começo de um lote, no máximo uma vez por dia,
-            até a validade. O código também vai numa mensagem separada, para copiar com um toque.</p>
-
-        <form action="{{ url_for('whatsapp_cupons_adicionar') }}" method="post" class="sub-card">
-            <select name="loja">
-                {% for loja in lojas %}<option>{{ loja }}</option>{% endfor %}
-            </select>
-            <input type="text" name="codigo" placeholder="Código, ex: QUERO20">
-            <input type="text" name="descricao" placeholder="Descrição, ex: R$ 20 OFF acima de R$ 99">
-            <input type="url" name="link" placeholder="Link do cupom ou da loja (opcional)">
-            <label class="linhas-info">Válido até (opcional)
-                <input type="date" name="validade" min="{{ hoje }}">
-            </label>
-            <button type="submit" class="botao botao-destaque">+ CADASTRAR CUPOM</button>
-        </form>
-
-        {% for c in cupons %}
-        <div class="wa-item">
-            <div class="wa-item-info">
-                <strong>{{ c.loja }}{% if c.codigo %} · {{ c.codigo }}{% endif %}</strong>
-                <span class="linhas-info">{{ c.descricao }}</span>
-                <span class="linhas-info">
-                    {% if c.validade %}{% if c.validade < hoje %}❌ vencido{% else %}até {{ c.validade[8:10] }}/{{ c.validade[5:7] }}{% endif %}{% else %}sem validade{% endif %}
-                    {% if c.ultimo_envio == hoje %} · ✅ já saiu hoje{% endif %}
-                </span>
-            </div>
-            <div class="wa-item-acoes">
-                <form action="{{ url_for('whatsapp_cupons_remover', cupom_id=c.id) }}" method="post"
-                      onsubmit="return confirm('Apagar este cupom?');">
-                    <button type="submit" class="botao-toggle" title="Apagar">✕</button>
-                </form>
-            </div>
-        </div>
-        {% else %}
-        <p class="linhas-info">Nenhum cupom cadastrado.</p>
-        {% endfor %}
-    </details>
 
     {# ------------------------------------------------ historico #}
     <details class="card" id="historico">

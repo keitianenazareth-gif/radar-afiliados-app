@@ -4,12 +4,44 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block titulo %}Radar Afiliados{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
 </head>
+{% set area = request.endpoint or '' %}
+{% set em_inicio = area == 'principal' %}
+{% set em_ofertas = area == 'ofertas' %}
+{% set em_cupons = area == 'cupons' %}
+{% set em_publicar = area.startswith('instagram_publicar') %}
+{% set em_robos = area == 'robos' or area.startswith('whatsapp') or area.startswith('instagram_robo') %}
+{% set em_galeria = area == 'galeria_pagina' %}
+{% set em_campanhas = area in ('shopee', 'geral', 'plataforma') %}
+{% set em_edicao = area == 'edicao' %}
 <body>
-    <div class="container">
-        {% block conteudo %}{% endblock %}
+    <div class="app">
+        <nav class="menu-lateral" aria-label="Menu principal">
+            <a class="marca" href="{{ url_for('principal') }}">Radar Afiliados</a>
+            <a href="{{ url_for('principal') }}" {% if em_inicio %}class="ativo" aria-current="page"{% endif %}>Início</a>
+            <a href="{{ url_for('ofertas') }}" {% if em_ofertas %}class="ativo" aria-current="page"{% endif %}>Ofertas</a>
+            <a href="{{ url_for('cupons') }}" {% if em_cupons %}class="ativo" aria-current="page"{% endif %}>Cupons</a>
+            <a href="{{ url_for('instagram_publicar') }}" {% if em_publicar %}class="ativo" aria-current="page"{% endif %}>Publicar</a>
+            <a href="{{ url_for('robos') }}" {% if em_robos %}class="ativo" aria-current="page"{% endif %}>Robôs</a>
+            <span class="menu-separador">Criação</span>
+            <a href="{{ url_for('shopee') }}" {% if em_campanhas %}class="ativo" aria-current="page"{% endif %}>Campanha com IA</a>
+            <a href="{{ url_for('galeria_pagina') }}" {% if em_galeria %}class="ativo" aria-current="page"{% endif %}>Galeria</a>
+            <a href="{{ url_for('edicao') }}" {% if em_edicao %}class="ativo" aria-current="page"{% endif %}>Edição</a>
+        </nav>
+        <main class="container">
+            {% block conteudo %}{% endblock %}
+        </main>
     </div>
+    <nav class="menu-baixo" aria-label="Menu principal">
+        <a href="{{ url_for('principal') }}" {% if em_inicio %}class="ativo" aria-current="page"{% endif %}>Início</a>
+        <a href="{{ url_for('ofertas') }}" {% if em_ofertas %}class="ativo" aria-current="page"{% endif %}>Ofertas</a>
+        <a href="{{ url_for('cupons') }}" {% if em_cupons %}class="ativo" aria-current="page"{% endif %}>Cupons</a>
+        <a href="{{ url_for('instagram_publicar') }}" {% if em_publicar %}class="ativo" aria-current="page"{% endif %}>Publicar</a>
+        <a href="{{ url_for('robos') }}" {% if em_robos %}class="ativo" aria-current="page"{% endif %}>Robôs</a>
+    </nav>
     {% block script %}{% endblock %}
 </body>
 </html>

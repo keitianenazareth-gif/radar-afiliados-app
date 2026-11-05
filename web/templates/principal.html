@@ -1,43 +1,47 @@
 {% extends "base.html" %}
 {% block titulo %}Radar Afiliados{% endblock %}
 {% block conteudo %}
-    <h1>RADAR AFILIADOS</h1>
-    <p class="subtitulo">Escolha uma plataforma para começar</p>
+    <h1 class="titulo-marca">Radar Afiliados</h1>
+    <p class="subtitulo">O que está acontecendo hoje</p>
 
-    <a class="card-link destaque" href="{{ url_for('geral') }}">
-        <strong>⭐ VISÃO GERAL</strong>
-        <span>Melhores oportunidades de todas as plataformas</span>
+    {% if erro_dados %}
+    <p class="aviso aviso-amarelo">⚠️ Não consegui ler os dados dos robôs: {{ erro_dados }}</p>
+    {% endif %}
+
+    <section class="painel-destaque">
+        <div class="linha-entre">
+            <h2>Robô do WhatsApp</h2>
+            <span class="selo-escuro">{{ 'Ligado' if resumo.whatsapp_ligado else 'Pausado' }}</span>
+        </div>
+        <p class="numero-grande">{% if resumo.proxima %}Próxima rodada: {{ resumo.proxima }}{% else %}Sem rodada programada{% endif %}</p>
+        <p class="painel-nota">{{ resumo.enviadas }} de {{ resumo.meta }} ofertas enviadas hoje · {{ resumo.por_rodada }} por rodada</p>
+    </section>
+
+    <a class="painel-linha" href="{{ url_for('instagram_robo') }}">
+        <div>
+            <h2>Robô do Instagram</h2>
+            <p class="linhas-info">{{ resumo.ig_esperando }} comentários esperando resposta{% if resumo.ig_quando %} · conferido às {{ resumo.ig_quando }}{% endif %}</p>
+            {% if resumo.ig_erro %}<p class="aviso aviso-amarelo">⚠️ {{ resumo.ig_erro }}</p>{% endif %}
+        </div>
+        <span class="selo {{ 'selo-verde' if resumo.ig_ligado else 'selo-cinza' }}">{{ 'Ligado' if resumo.ig_ligado else 'Desligado' }}</span>
     </a>
 
-    <a class="card-link" href="{{ url_for('shopee') }}">
-        <strong>SHOPEE</strong>
-        <span>Busca automática e campanhas com IA</span>
-    </a>
+    <h2 class="titulo-secao">O que você quer fazer?</h2>
+    <div class="grade-atalhos">
+        <a class="atalho" href="{{ url_for('ofertas') }}"><strong>Garimpar ofertas</strong><span>{{ resumo.fila }} na fila</span></a>
+        <a class="atalho" href="{{ url_for('cupons') }}"><strong>Cupons</strong><span>{{ resumo.cupons }} válidos hoje</span></a>
+        <a class="atalho" href="{{ url_for('instagram_publicar') }}"><strong>Publicar no Instagram</strong><span>Post de produtos ou diferente</span></a>
+        <a class="atalho" href="{{ url_for('robos') }}"><strong>Robôs</strong><span>WhatsApp e Instagram</span></a>
+        <a class="atalho" href="{{ url_for('geral') }}"><strong>Melhores oportunidades</strong><span>Ranking com campanha por IA</span></a>
+        <a class="atalho" href="{{ url_for('galeria_pagina') }}"><strong>Galeria</strong><span>Vídeos e imagens salvos</span></a>
+        <a class="atalho" href="{{ url_for('edicao') }}"><strong>Edição</strong><span>Melhorar roteiros e vídeos</span></a>
+    </div>
 
-    {% for slug, nome in plataformas_manuais %}
-    <a class="card-link" href="{{ url_for('plataforma', slug=slug) }}">
-        <strong>{{ nome }}</strong>
-        <span>Cole o link do produto</span>
-    </a>
-    {% endfor %}
-
-    <a class="card-link" href="{{ url_for('whatsapp') }}">
-        <strong>💬 WHATSAPP</strong>
-        <span>Robô de ofertas no grupo: fila, cupons e ajustes</span>
-    </a>
-
-    <a class="card-link" href="{{ url_for('instagram_robo') }}">
-        <strong>📸 ROBÔ DO INSTAGRAM</strong>
-        <span>Resposta automática para quem comenta QUERO</span>
-    </a>
-
-    <a class="card-link" href="{{ url_for('galeria_pagina') }}">
-        <strong>🖼️ GALERIA</strong>
-        <span>Vídeos e imagens salvos pra postar</span>
-    </a>
-
-    <a class="card-link" href="{{ url_for('edicao') }}">
-        <strong>✏️ EDIÇÃO</strong>
-        <span>Analisar e melhorar roteiros/vídeos com IA</span>
-    </a>
+    <h2 class="titulo-secao">Criar campanha por loja</h2>
+    <div class="linha">
+        <a class="etiqueta etiqueta-forte" href="{{ url_for('shopee') }}">Shopee</a>
+        {% for slug, nome in plataformas_manuais %}
+        <a class="etiqueta" href="{{ url_for('plataforma', slug=slug) }}">{{ nome }}</a>
+        {% endfor %}
+    </div>
 {% endblock %}

@@ -4,6 +4,27 @@ Lista do que falta fazer no notebook, em ordem. Mesma lista do projeto "radar"
 no claude.ai (doc `claude/whatsapp-robo-status.md`). Ao concluir um item,
 marque aqui com [x] e faça commit.
 
+## Novo layout do Radar web (05/11: etapas 1 a 4 e tela de publicar prontas, testadas só em simulação)
+Antes de usar de verdade: primeira publicação real, com carrossel e foto enviada na hora. Etapa 5 não construída.
+Proposta visual: https://claude.ai/artifact/1FWxstC1smeiwT7gvhU2S9 (laranja e amarelo do Radar;
+só usar o ScanHub como inspiração de função, sem copiar visual nem textos).
+1. Aparência nova em todo o site, tela de Início com dados reais, menu de baixo no celular e
+   menu lateral no notebook.
+2. Organizar as telas de WhatsApp e Instagram, com uma entrada única para os robôs.
+3. Tela de Cupons: filtros (loja, validade, preço do produto, desconto), busca por código, campos
+   de desconto, mínimo e limite, selo Conferido/Falta conferir e aviso de produtos selecionados.
+4. Tela única de envio: fila, garimpo da Shopee, links colados, conversor, ritmo e programação.
+5. Opcional, por último: Status do WhatsApp com arte.
+Decisão de 05/11: posts do Instagram só pelo Radar. Falta construir a tela de publicar (hoje o Radar
+só posta Reel e não guarda produtos), com vídeo ou carrossel, legenda e produtos, cadastrando o post
+sozinho no robô do QUERO. Proposta: fazer antes da etapa 1, aguardando "pode começar".
+Fora do plano por enquanto: app Android, Link inteligente, painel de anúncios, proteção de grupos.
+Espelhamento: decisão de não fazer.
+
+Teste do ScanHub até 12/11: testar um cupom no carrinho do ML; perguntar ao suporte sobre cupons
+da Shopee; antes de conectar o WhatsApp, ver se o número pessoal é o mesmo do robô (o próprio
+ScanHub recomenda número de WhatsApp Business dedicado). Não cadastrar a chave da Shopee por ora.
+
 ## Situação atual
 - Robô do WhatsApp (`robo_whatsapp.py`): desde 05/11, 15 rodadas por dia (de hora em hora,
   das 7h às 21h) com 20 ofertas de uma vez e pausa de 10 a 20 s (decisão da Keiti, editável em
@@ -19,7 +40,8 @@ marque aqui com [x] e faça commit.
   Commit 500f8ba (02/11): não repete produto parecido (código, foto e nome) e,
   se o GitHub atrasar, manda o lote do último horário até 3h depois.
 - Robô do Instagram (`robo_instagram.py`, página /instagram-robo): responde QUERO por mensagem
-  privada, olhando os comentários a cada 10 min junto com o robô do WhatsApp. Começa DESLIGADO.
+  privada, olhando os comentários a cada 10 min junto com o robô do WhatsApp. LIGADO e testado em 05/11 (mensagem chegou). Direct ainda desligado.
+  Pendente: gerar nova autorização da Kairogen (o token apareceu em print no chat e foi enviado à Meta por engano).
   Cada post novo precisa ser cadastrado na página com os produtos dele.
   Direct com chave própria (desligada): responde em até 24h, sem texto guardado. Não dá para
   chamar novo seguidor (regra da Meta). Botão pronto: testar se o toque aparece na leitura

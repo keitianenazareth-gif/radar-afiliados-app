@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block titulo %}Ofertas - Radar Afiliados{% endblock %}
+{% block conteudo %}
+<div class="wa-pagina">
+    <h1>Ofertas</h1>
+    <p class="subtitulo">Escolha os produtos e confira o envio. Tudo numa tela.</p>
+
+    {% for mensagem in get_flashed_messages() %}
+    <p class="aviso">{{ mensagem }}</p>
+    {% endfor %}
+    {% if erro_dados %}
+    <div class="card card-erro"><strong>⚠️ Não consegui carregar os dados do robô</strong>
+        <p class="linhas-info">{{ erro_dados }}</p></div>
+    {% endif %}
+
+    <div class="duas-colunas">
+        <div class="coluna-principal">
+            <div class="abas" role="tablist" aria-label="Como adicionar ofertas">
+                <button type="button" class="aba-botao ativo" data-aba="garimpar" role="tab" aria-selected="true">Garimpar Shopee</button>
+                <button type="button" class="aba-botao" data-aba="colar" role="tab" aria-selected="false">Colar links</button>
+            </div>
+
+            <section class="card" id="aba-garimpar">
+                <label class="rotulo" for="termo">O que você procura?</label>
+                <div class="rodape-form">
+                    <input type="text" id="termo" placeholder="Ex.: organizador, vaso de planta">
+                    <button type="button" class="botao botao-primario" id="garimpar">Garimpar</button>
+                </div>
+                <div class="linha" role="group" aria-label="Categorias">
+                    {% for categoria in categorias %}<button type="button" class="filtro categoria">{{ categoria }}</button>{% endfor %}
+                </div>
+                <label class="rotulo" for="ordem-garimpo">Ordenar por</label>
+                <select id="ordem-garimpo">
+                    <option value="vendas">Mais vendidos</option>
+                    <option value="comissao">Maior comissão</option>
+                    <option value="preco">Menor preço</option>
+                </select>
+                <p class="status" id="status-garimpo" aria-live="polite"></p>
+                <div id="produtos-garimpo"></div>
+            </section>
+
+            <section class="card" id="aba-colar" hidden>
+                <label class="rotulo" for="links">Cole um link por linha</label>
+                <textarea id="links" style="min-height:110px" placeholder="https://shopee.com.br/..."></textarea>
+                <button type="button" class="botao botao-destaque" id="converter">Converter para meu link</button>
+                <p class="linhas-info">Links da Shopee viram o seu link de afiliado. Links de outras lojas ficam como estão: confira se já são seus antes de usar.</p>
+                <div id="links-convertidos" aria-live="polite"></div>
+            </section>
+
+            <details class="card" id="fila" open>
+                <summary><strong>Fila de ofertas</strong><span class="contador">{{ fila|length }}</span></summary>
+                <p class="linhas-info">Em cada rodada sai a fila, na ordem abaixo, misturada com a Shopee. Depois de enviado, o item sai da fila.</p>
+                {% for item in fila %}
+                <div class="wa-item">
+                    {% if item.imagem %}<img src="{{ item.imagem }}" alt="" loading="lazy">{% endif %}
+                    <div class="wa-item-info">
+                        <strong>{{ loop.index }}. {{ item.nome }}</strong>
+                        <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}{% if item.vale_ate_texto %} · ⏰ vale até {{ item.vale_ate_texto }}{% endif %}{% if item.prioridade %} · sai primeiro{% endif %}</span>
+                        <a href="{{ item.link }}" target="_blank" rel="noopener" class="link-pequeno">abrir link</a>
+                    </div>
+                    <div class="wa-item-acoes">
+                        <form action="{{ url_for('whatsapp_fila_mover', item_id=item.id, direcao='cima') }}" method="post">
+                            <button type="submit" class="botao-toggle" aria-label="Subir" {{ 'disabled' if loop.first }}>▲</button>
+                        </form>
+                        <form action="{{ url_for('whatsapp_fila_mover', item_id=item.id, direcao='baixo') }}" method="post">
+                            <button type="submit" class="botao-toggle" aria-label="Descer" {{ 'disabled' if loop.last }}>▼</button>
+                        </form>
+                        <form action="{{ url_for('whatsapp_fila_remover', item_id=item.id) }}" method="post" onsubmit="return confirm('Tirar da fila?');">
+                            <button type="submit" class="botao-toggle" aria-label="Remover">✕</button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <p class="linhas-info">Fila vazia: as rodadas saem só com ofertas escolhidas pelo robô na Shopee.</p>
+                {% endfor %}
+
+                <details class="sub-card">
+                    <summary><strong>Adicionar à mão</strong></summary>
+                    <form action="{{ url_for('whatsapp_fila_adicionar') }}" method="post">
+                        <label class="rotulo">Link de afiliado<input type="url" name="link" placeholder="https://..." required></label>
+                        <label class="rotulo">Loja
+                            <select name="loja"><option value="auto">Descobrir pelo link</option>{% for loja in lojas %}<option>{{ loja }}</option>{% endfor %}</select>
+                        </label>
+                        <label class="rotulo">Nome (opcional)<input type="text" name="nome"></label>
+                        <label class="rotulo">Preço (opcional)<input type="text" name="preco" placeholder="Ex.: 89,90"></label>
+                        <label class="rotulo">Detalhe extra (opcional)<input type="text" name="observacao" placeholder="Ex.: Frete grátis"></label>
+                        <label class="rotulo">Link da foto (opcional)<input type="url" name="imagem" placeholder="https://..."></label>
+                        <button type="submit" class="botao botao-destaque">ADICIONAR NA FILA</button>
+                    </form>
+                </details>
+            </details>
+        </div>
+
+        <aside class="coluna-envio card" aria-label="Seu envio">
+            <div class="linha-entre"><strong>Seu envio</strong>
+                <span class="selo {{ 'selo-verde' if config.ativo else 'selo-cinza' }}">{{ 'Ligado' if config.ativo else 'Pausado' }}</span></div>
+            <p class="numero-medio">{{ fila|length }} na fila</p>
+            <p class="linhas-info">{% if proxima %}Próxima rodada: {{ proxima }}{% else %}Sem rodada programada{% endif %}</p>
+            <p class="linhas-info">Destino: {{ config.grupo_nome or 'nenhum grupo escolhido' }}</p>
+            <form action="{{ url_for('ofertas_ritmo') }}" method="post">
+                <label class="rotulo">Horários das rodadas
+                    <input type="text" name="rodadas" value="{{ (config.rodadas or [])|join(', ') }}">
+                </label>
+                <label class="rotulo">Ofertas por rodada
+                    <input type="number" name="ofertas_por_rodada" min="1" max="30" value="{{ config.ofertas_por_rodada }}">
+                </label>
+                <button type="submit" class="botao botao-contorno largura-toda">Salvar ritmo</button>
+            </form>
+            <form action="{{ url_for('whatsapp_previa') }}" method="post">
+                <button type="submit" class="botao botao-destaque largura-toda">Ver próximo lote</button>
+            </form>
+            <form action="{{ url_for('whatsapp_enviar_agora') }}" method="post" onsubmit="return confirm('Enviar um lote agora no grupo?');">
+                <button type="submit" class="botao botao-primario largura-toda" {{ 'disabled' if faltando }}>Enviar agora</button>
+            </form>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+    let produtosGarimpo = [];
+    const statusGarimpo = document.getElementById("status-garimpo");
+
+    document.querySelectorAll(".aba-botao").forEach((aba) => aba.addEventListener("click", () => {
+        document.querySelectorAll(".aba-botao").forEach((a) => {
+            a.classList.toggle("ativo", a === aba);
+            a.setAttribute("aria-selected", a === aba ? "true" : "false");
+        });
+        document.getElementById("aba-garimpar").hidden = aba.dataset.aba !== "garimpar";
+        document.getElementById("aba-colar").hidden = aba.dataset.aba !== "colar";
+    }));
+
+    function moeda(valor) {
+        return "R$ " + Number(valor || 0).toFixed(2).replace(".", ",");
+    }
+
+    function criar(tag, classe, texto) {
+        const el = document.createElement(tag);
+        if (classe) el.className = classe;
+        if (texto !== undefined) el.textContent = texto;
+        return el;
+    }
+
+    function desenharProdutos() {
+        const ordem = document.getElementById("ordem-garimpo").value;
+        const lista = [...produtosGarimpo].sort((a, b) => {
+            if (ordem === "preco") return Number(a.priceMin || 0) - Number(b.priceMin || 0);
+            if (ordem === "comissao") return Number(b.commission || 0) - Number(a.commission || 0);
+            return Number(b.sales || 0) - Number(a.sales || 0);
+        });
+        const caixa = document.getElementById("produtos-garimpo");
+        caixa.replaceChildren();
+        lista.forEach((p) => {
+            const linha = criar("article", "wa-item");
+            const foto = criar("img");
+            foto.src = p.imageUrl || "";
+            foto.alt = "";
+            foto.loading = "lazy";
+            const info = criar("div", "wa-item-info");
+            info.append(criar("strong", "", p.productName || "Produto"));
+            info.append(criar("span", "linhas-info",
+                moeda(p.priceMin) + " · comissão " + moeda(p.commission) + " · " + (p.sales || 0) + " vendas"));
+            const botao = criar("button", "botao-mais", "+");
+            botao.type = "button";
+            botao.setAttribute("aria-label", "Adicionar à fila");
+            botao.addEventListener("click", () => adicionarNaFila(p, botao));
+            linha.append(foto, info, botao);
+            caixa.append(linha);
+        });
+    }
+
+    async function garimpar() {
+        const termo = document.getElementById("termo").value.trim();
+        if (!termo) {
+            statusGarimpo.textContent = "Digite o que procura ou toque numa categoria.";
+            return;
+        }
+        statusGarimpo.textContent = "Buscando na Shopee...";
+        try {
+            const resp = await fetch("/api/shopee/buscar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ opcao: "4", termo: termo }),
+            });
+            const corpo = await resp.json();
+            if (corpo.erro) throw new Error(corpo.erro);
+            produtosGarimpo = corpo.itens || [];
+            statusGarimpo.textContent = produtosGarimpo.length ? produtosGarimpo.length + " produtos encontrados." : "Nenhum produto encontrado.";
+            desenharProdutos();
+        } catch (erro) {
+            statusGarimpo.textContent = "A Shopee não respondeu agora. Tente de novo em instantes. (" + erro.message + ")";
+        }
+    }
+
+    async function adicionarNaFila(produto, botao) {
+        botao.disabled = true;
+        botao.textContent = "…";
+        try {
+            const resp = await fetch("/api/ofertas/adicionar-shopee", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(produto),
+            });
+            const corpo = await resp.json();
+            statusGarimpo.textContent = corpo.mensagem;
+            botao.textContent = corpo.ok ? "✓" : "!";
+            if (!corpo.ok) botao.disabled = false;
+        } catch (erro) {
+            statusGarimpo.textContent = "Não consegui adicionar agora. Tente de novo.";
+            botao.textContent = "+";
+            botao.disabled = false;
+        }
+    }
+
+    document.getElementById("garimpar").addEventListener("click", garimpar);
+    document.getElementById("termo").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") garimpar();
+    });
+    document.getElementById("ordem-garimpo").addEventListener("change", desenharProdutos);
+    document.querySelectorAll(".categoria").forEach((b) => b.addEventListener("click", () => {
+        document.getElementById("termo").value = b.textContent;
+        garimpar();
+    }));
+
+    document.getElementById("converter").addEventListener("click", async () => {
+        const caixa = document.getElementById("links-convertidos");
+        caixa.textContent = "Convertendo...";
+        try {
+            const resp = await fetch("/api/ofertas/converter", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ links: document.getElementById("links").value }),
+            });
+            const corpo = await resp.json();
+            caixa.replaceChildren();
+            (corpo.itens || []).forEach((item) => {
+                const linha = criar("div", "wa-log");
+                linha.append(criar("span", "linhas-info", item.situacao));
+                linha.append(criar("span", "", item.link));
+                const copiar = criar("button", "botao-texto", "Copiar");
+                copiar.type = "button";
+                copiar.addEventListener("click", async () => {
+                    try {
+                        await navigator.clipboard.writeText(item.link);
+                        copiar.textContent = "Copiado";
+                    } catch (erro) {
+                        copiar.textContent = "Selecione e copie";
+                    }
+                });
+                linha.append(copiar);
+                caixa.append(linha);
+            });
+            if (!(corpo.itens || []).length) caixa.textContent = "Cole pelo menos um link.";
+        } catch (erro) {
+            caixa.textContent = "Não consegui converter agora. Tente de novo.";
+        }
+    });
+</script>
+{% endblock %}

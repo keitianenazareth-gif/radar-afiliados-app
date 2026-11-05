@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Robôs - Radar Afiliados{% endblock %}
+{% block conteudo %}
+    <h1>Robôs</h1>
+    <p class="subtitulo">Tudo o que roda sozinho</p>
+    {% if erro_dados %}
+    <p class="aviso aviso-amarelo">⚠️ Não consegui ler os dados dos robôs: {{ erro_dados }}</p>
+    {% endif %}
+
+    <a class="painel-linha" href="{{ url_for('whatsapp') }}">
+        <div>
+            <h2>WhatsApp</h2>
+            <p class="linhas-info">{% if resumo.proxima %}Próxima rodada: {{ resumo.proxima }} · {% endif %}{{ resumo.enviadas }} de {{ resumo.meta }} ofertas hoje</p>
+            <p class="linhas-info">Grupo, próximo lote, histórico e ajustes</p>
+        </div>
+        <span class="selo {{ 'selo-verde' if resumo.whatsapp_ligado else 'selo-cinza' }}">{{ 'Ligado' if resumo.whatsapp_ligado else 'Pausado' }}</span>
+    </a>
+
+    <a class="painel-linha" href="{{ url_for('instagram_robo') }}">
+        <div>
+            <h2>Instagram: QUERO</h2>
+            <p class="linhas-info">{{ resumo.ig_esperando }} comentários esperando{% if resumo.ig_quando %} · conferido às {{ resumo.ig_quando }}{% endif %}</p>
+            <p class="linhas-info">Posts cadastrados e relatório</p>
+        </div>
+        <span class="selo {{ 'selo-verde' if resumo.ig_ligado else 'selo-cinza' }}">{{ 'Ligado' if resumo.ig_ligado else 'Desligado' }}</span>
+    </a>
+
+    <a class="painel-linha" href="{{ url_for('instagram_robo') }}">
+        <div>
+            <h2>Instagram: Direct</h2>
+            <p class="linhas-info">Responde quem escreveu nas últimas 24 horas</p>
+        </div>
+        <span class="selo {{ 'selo-verde' if resumo.direct_ligado else 'selo-cinza' }}">{{ 'Ligado' if resumo.direct_ligado else 'Desligado' }}</span>
+    </a>
+{% endblock %}

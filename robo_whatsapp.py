@@ -493,6 +493,7 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
     if qtd_cupons > 0:
         cupons = [c for c in dados.listar_cupons()
                   if dados.cupom_valido(c, hoje) and c.get("ultimo_envio") != hoje]
+        cupons.sort(key=lambda c: not c.get("prioridade"))  # "Usar na rodada" sai primeiro
         for c in cupons[:qtd_cupons]:
             lote.append({
                 "tipo": "cupom",

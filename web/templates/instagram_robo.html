@@ -2,9 +2,10 @@
 {% block titulo %}Robô do Instagram - Radar Afiliados{% endblock %}
 {% block conteudo %}
 <div class="wa-pagina">
-    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
-    <h1>📸 ROBÔ DO INSTAGRAM</h1>
+    <a class="voltar" href="{{ url_for('robos') }}">&lt; Robôs</a>
+    <h1>Robô do Instagram</h1>
     <p class="subtitulo">Responde no Direct quem comenta QUERO nos posts escolhidos</p>
+    <p class="linhas-info">Post novo publicado em <a class="link-pequeno" href="{{ url_for('instagram_publicar') }}">Publicar</a> entra nesta lista sozinho.</p>
 
     {% for mensagem in get_flashed_messages() %}
     <p class="aviso">{{ mensagem }}</p>
@@ -97,6 +98,9 @@
             <label class="rotulo">Nome (só para você)
                 <input type="text" name="nome" value="{{ post.nome }}">
             </label>
+            <label class="rotulo">Outra palavra além de QUERO (opcional)
+                <input type="text" name="palavra" value="{{ post.palavra or '' }}" maxlength="30">
+            </label>
             <label class="rotulo">Produtos: um por linha, título | link da foto | link do produto
                 <textarea name="produtos" rows="7">{% for p in post.produtos %}{{ p.titulo }} | {{ p.foto }} | {{ p.link }}
 {% endfor %}</textarea>
@@ -120,6 +124,9 @@
             </label>
             <label class="rotulo">Nome (só para você)
                 <input type="text" name="nome">
+            </label>
+            <label class="rotulo">Outra palavra além de QUERO (opcional)
+                <input type="text" name="palavra" maxlength="30">
             </label>
             <label class="rotulo">Produtos: um por linha, título | link da foto | link do produto (até 9)
                 <textarea name="produtos" rows="7"></textarea>
