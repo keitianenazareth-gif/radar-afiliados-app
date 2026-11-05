@@ -18,6 +18,9 @@ marque aqui com [x] e faça commit.
   Shopee quais horários vendem mais e ajustar.
   Commit 500f8ba (02/11): não repete produto parecido (código, foto e nome) e,
   se o GitHub atrasar, manda o lote do último horário até 3h depois.
+- Robô do Instagram (`robo_instagram.py`, página /instagram-robo): responde QUERO por mensagem
+  privada, olhando os comentários a cada 10 min junto com o robô do WhatsApp. Começa DESLIGADO.
+  Cada post novo precisa ser cadastrado na página com os produtos dele.
 - Servidor Evolution API no Railway (projeto "sublime-spirit"), instância `promocoes`.
   O chip agora está no WhatsApp Business: conferir em "Aparelhos conectados" se o
   servidor continua conectado; se não, parear de novo.

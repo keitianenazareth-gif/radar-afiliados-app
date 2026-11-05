@@ -530,39 +530,6 @@ def instagram_status():
         return jsonify({"ok": False, "erro": str(erro)})
 
 
-@app.route("/api/instagram/comentarios-teste")
-def instagram_comentarios_teste():
-    """So leitura: testa se o token le comentarios. Nao envia nada."""
-    from web.instagram_publish import InstagramPublishError, diagnostico_comentarios
-
-    try:
-        return jsonify({"ok": True, **diagnostico_comentarios()})
-    except InstagramPublishError as erro:
-        return jsonify({"ok": False, "erro": str(erro)})
-
-
-@app.route("/api/instagram/resposta-teste")
-def instagram_resposta_teste_lista():
-    """So leitura: lista os comentarios do post do teste."""
-    from web.instagram_publish import InstagramPublishError, comentarios_do_teste
-
-    try:
-        return jsonify({"ok": True, "comentarios": comentarios_do_teste()})
-    except InstagramPublishError as erro:
-        return jsonify({"ok": False, "erro": str(erro)})
-
-
-@app.route("/api/instagram/resposta-teste/<comment_id>", methods=["POST"])
-def instagram_resposta_teste_enviar(comment_id):
-    """Teste manual: envia uma resposta privada a um comentario QUERO."""
-    from web.instagram_publish import InstagramPublishError, responder_comentario_teste
-
-    try:
-        return jsonify({"ok": True, **responder_comentario_teste(comment_id)})
-    except InstagramPublishError as erro:
-        return jsonify({"ok": False, "erro": str(erro)})
-
-
 @app.route("/galeria/postar-instagram/<item_id>", methods=["POST"])
 def galeria_postar_instagram(item_id):
     """Posta um item ja salvo na Galeria como Reel no Instagram
@@ -931,6 +898,62 @@ def whatsapp_ajustes():
     else:
         flash("✅ Ajustes salvos.")
     return redirect(url_for("whatsapp") + "#ajustes")
+
+
+# ------------------------------------------------------------ robo do Instagram
+
+@app.route("/instagram-robo")
+def instagram_robo():
+    import robo_instagram as ri
+
+    erro_dados = ""
+    config, log, execucao = {}, [], {}
+    try:
+        config, log, execucao = ri.ler_config(), ri.ler_log(), ri.ler_execucao()
+    except RuntimeError as erro:
+        erro_dados = str(erro)
+    return render_template("instagram_robo.html", config=config, log=log, execucao=execucao,
+                           erro_dados=erro_dados)
+
+
+@app.route("/instagram-robo/ligar", methods=["POST"])
+def instagram_robo_ligar():
+    import robo_instagram as ri
+
+    ativo = request.form.get("ativo") == "1"
+    ri.salvar_config({"ativo": ativo})
+    flash("✅ Robô ligado: ele responde na próxima conferida, em até 10 minutos." if ativo
+          else "⏸️ Robô desligado: nenhuma mensagem será enviada.")
+    return redirect(url_for("instagram_robo"))
+
+
+@app.route("/instagram-robo/post", methods=["POST"])
+def instagram_robo_post():
+    import robo_instagram as ri
+
+    codigo = ri.codigo_do_post(request.form.get("post", ""))
+    produtos, problemas = ri.ler_produtos(request.form.get("produtos", ""))
+    if not codigo:
+        problemas.insert(0, "Não reconheci o link do post.")
+    if problemas:
+        flash("⚠️ Nada foi salvo. " + " ".join(problemas))
+        return redirect(url_for("instagram_robo"))
+    posts = dict(ri.ler_config().get("posts") or {})
+    posts[codigo] = {"nome": request.form.get("nome", "").strip()[:80], "produtos": produtos}
+    ri.salvar_config({"posts": posts})
+    flash("✅ Post salvo.")
+    return redirect(url_for("instagram_robo"))
+
+
+@app.route("/instagram-robo/post/<codigo>/remover", methods=["POST"])
+def instagram_robo_remover(codigo):
+    import robo_instagram as ri
+
+    posts = dict(ri.ler_config().get("posts") or {})
+    posts.pop(codigo, None)
+    ri.salvar_config({"posts": posts})
+    flash("✅ O robô não responde mais nesse post.")
+    return redirect(url_for("instagram_robo"))
 
 
 if __name__ == "__main__":

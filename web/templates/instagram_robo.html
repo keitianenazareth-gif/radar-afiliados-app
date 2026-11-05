@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block titulo %}Robô do Instagram - Radar Afiliados{% endblock %}
+{% block conteudo %}
+<div class="wa-pagina">
+    <a class="voltar" href="{{ url_for('principal') }}">&lt; VOLTAR</a>
+    <h1>📸 ROBÔ DO INSTAGRAM</h1>
+    <p class="subtitulo">Responde no Direct quem comenta QUERO nos posts escolhidos</p>
+
+    {% for mensagem in get_flashed_messages() %}
+    <p class="aviso">{{ mensagem }}</p>
+    {% endfor %}
+
+    {% if erro_dados %}
+    <div class="card card-erro">
+        <strong>⚠️ Não consegui carregar os dados do robô</strong>
+        <p class="linhas-info">{{ erro_dados }}</p>
+    </div>
+    {% else %}
+
+    <div class="card">
+        <div class="wa-status">
+            <div>
+                {% if config.ativo %}
+                <span class="selo selo-verde">● LIGADO</span>
+                {% else %}
+                <span class="selo selo-cinza">⏸ DESLIGADO</span>
+                {% endif %}
+                <p class="linhas-info" style="margin:8px 0 0">
+                    Confere os comentários a cada 10 minutos e envia até {{ config.max_por_vez }} mensagens por vez.
+                </p>
+            </div>
+            <form action="{{ url_for('instagram_robo_ligar') }}" method="post" class="inline">
+                <input type="hidden" name="ativo" value="{{ '0' if config.ativo else '1' }}">
+                <button type="submit" class="botao {{ 'botao-secundario' if config.ativo else 'botao-verde' }}">
+                    {{ 'DESLIGAR' if config.ativo else 'LIGAR' }}
+                </button>
+            </form>
+        </div>
+        {% if execucao.quando %}
+        <p class="linhas-info" style="margin-top:12px">
+            Última conferida: {{ execucao.quando }} · {{ execucao.esperando }} esperando · {{ execucao.enviadas }} enviadas nessa vez
+        </p>
+        {% if execucao.erro %}<p class="aviso aviso-amarelo">⚠️ {{ execucao.erro }}</p>{% endif %}
+        {% else %}
+        <p class="aviso aviso-amarelo">O robô ainda não conferiu os comentários nenhuma vez.</p>
+        {% endif %}
+    </div>
+
+    {% for codigo, post in config.posts.items() %}
+    <details class="card">
+        <summary><strong>🖼️ {{ post.nome or codigo }}</strong>
+            <span class="contador">{{ post.produtos|length }}</span></summary>
+        <p class="linhas-info"><a href="https://www.instagram.com/p/{{ codigo }}/" target="_blank" rel="noopener">Abrir o post</a></p>
+        <form action="{{ url_for('instagram_robo_post') }}" method="post" class="sub-card">
+            <input type="hidden" name="post" value="{{ codigo }}">
+            <label class="rotulo">Nome (só para você)
+                <input type="text" name="nome" value="{{ post.nome }}">
+            </label>
+            <label class="rotulo">Produtos: um por linha, título | link da foto | link do produto
+                <textarea name="produtos" rows="7">{% for p in post.produtos %}{{ p.titulo }} | {{ p.foto }} | {{ p.link }}
+{% endfor %}</textarea>
+            </label>
+            <button type="submit" class="botao botao-primario">SALVAR</button>
+        </form>
+        <form action="{{ url_for('instagram_robo_remover', codigo=codigo) }}" method="post" class="inline"
+              onsubmit="return confirm('Parar de responder nesse post?');">
+            <button type="submit" class="botao botao-secundario">TIRAR ESTE POST</button>
+        </form>
+    </details>
+    {% else %}
+    <div class="card"><p class="linhas-info">Nenhum post cadastrado.</p></div>
+    {% endfor %}
+
+    <details class="card">
+        <summary><strong>➕ Colocar outro post</strong></summary>
+        <form action="{{ url_for('instagram_robo_post') }}" method="post" class="sub-card">
+            <label class="rotulo">Link do post
+                <input type="text" name="post" placeholder="https://www.instagram.com/p/...">
+            </label>
+            <label class="rotulo">Nome (só para você)
+                <input type="text" name="nome">
+            </label>
+            <label class="rotulo">Produtos: um por linha, título | link da foto | link do produto (até 9)
+                <textarea name="produtos" rows="7"></textarea>
+            </label>
+            <button type="submit" class="botao botao-primario">COLOCAR</button>
+        </form>
+    </details>
+
+    <details class="card" open>
+        <summary><strong>🕒 Relatório</strong></summary>
+        {% for e in log %}
+        <div class="wa-log {{ '' if e.ok else 'wa-log-erro' }}">
+            <span class="linhas-info">{{ e.quando }}</span>
+            <span>{{ '✅' if e.ok else '⚠️' }} {{ e.titulo }}</span>
+            {% if e.erro %}<span class="linhas-info">{{ e.erro }}</span>{% endif %}
+        </div>
+        {% else %}
+        <p class="linhas-info">Nada enviado ainda.</p>
+        {% endfor %}
+    </details>
+    {% endif %}
+</div>
+{% endblock %}

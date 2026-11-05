@@ -773,6 +773,12 @@ if __name__ == "__main__":
         elif "--agora" in args:
             enviar_lote("manual (Actions)")
         else:
+            try:
+                import robo_instagram
+
+                robo_instagram.rodar()
+            except Exception as erro:  # noqa: BLE001 - o WhatsApp sai mesmo se o Instagram falhar
+                print(f"Instagram: {type(erro).__name__}")
             rodar_agendado()
     except (RuntimeError, requests.RequestException) as erro:
         print(f"ERRO: {erro}")
