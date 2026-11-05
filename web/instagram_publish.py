@@ -76,6 +76,37 @@ def status_conta() -> dict:
     return {campo: dados.get(campo) for campo in ("username", "followers_count", "media_count")}
 
 
+def diagnostico_comentarios() -> dict:
+    """So leitura: testa se o token consegue listar os comentarios do post
+    mais recente. Devolve so contagens e codigos de erro: nenhum nome, texto
+    de comentario ou token. Nao envia nada."""
+    _checar_credenciais()
+
+    def _ler(caminho: str, campos: str) -> tuple:
+        resp = requests.get(
+            f"{BASE_URL}/{caminho}",
+            params={"fields": campos, "limit": 25, "access_token": INSTAGRAM_ACCESS_TOKEN},
+            timeout=30,
+        )
+        dados = resp.json()
+        if resp.status_code >= 400:
+            erro = dados.get("error", {})
+            return None, {"http": resp.status_code, "codigo": erro.get("code"),
+                          "mensagem": erro.get("message", "sem detalhe")}
+        return dados.get("data", []), None
+
+    posts, erro = _ler(f"{INSTAGRAM_USER_ID}/media", "id,comments_count")
+    if erro:
+        return {"le_posts": False, "le_comentarios": False, "erro": erro}
+    if not posts:
+        return {"le_posts": True, "le_comentarios": None, "posts": 0}
+    comentarios, erro = _ler(f"{posts[0]['id']}/comments", "id")
+    if erro:
+        return {"le_posts": True, "le_comentarios": False, "posts": len(posts), "erro": erro}
+    return {"le_posts": True, "le_comentarios": True, "posts": len(posts),
+            "comentarios_no_ultimo_post": len(comentarios)}
+
+
 def criar_container_reel(
     video_url: str,
     legenda: str,

@@ -530,6 +530,17 @@ def instagram_status():
         return jsonify({"ok": False, "erro": str(erro)})
 
 
+@app.route("/api/instagram/comentarios-teste")
+def instagram_comentarios_teste():
+    """So leitura: testa se o token le comentarios. Nao envia nada."""
+    from web.instagram_publish import InstagramPublishError, diagnostico_comentarios
+
+    try:
+        return jsonify({"ok": True, **diagnostico_comentarios()})
+    except InstagramPublishError as erro:
+        return jsonify({"ok": False, "erro": str(erro)})
+
+
 @app.route("/galeria/postar-instagram/<item_id>", methods=["POST"])
 def galeria_postar_instagram(item_id):
     """Posta um item ja salvo na Galeria como Reel no Instagram
