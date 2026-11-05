@@ -2,7 +2,7 @@
 
 Roda no notebook da Keiti (app do Claude aberto + Chrome logado no Mercado
 Livre, extensão Claude in Chrome conectada). Roda às 6h30, 10h30 e 18h30 e
-coloca ofertas na fila da página /whatsapp; o robô manda a fila nas rodadas (a cada 2h, das 7h às 21h), completando com a Shopee.
+coloca ofertas na fila da página /whatsapp; o robô manda a fila nas rodadas (de hora em hora, das 7h às 21h), completando com a Shopee.
 
 **O que colocar depende do horário da execução:**
 

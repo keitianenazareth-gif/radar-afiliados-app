@@ -5,10 +5,10 @@ no claude.ai (doc `claude/whatsapp-robo-status.md`). Ao concluir um item,
 marque aqui com [x] e faça commit.
 
 ## Situação atual
-- Robô do WhatsApp (`robo_whatsapp.py`): desde 05/11, 8 rodadas por dia (7h, 9h, 11h, 13h, 15h,
-  17h, 19h e 21h) com 20 ofertas de uma vez e pausa de 10 a 20 s (decisão da Keiti, editável em
+- Robô do WhatsApp (`robo_whatsapp.py`): desde 05/11, 15 rodadas por dia (de hora em hora,
+  das 7h às 21h) com 20 ofertas de uma vez e pausa de 10 a 20 s (decisão da Keiti, editável em
   /whatsapp). A fila entra misturada com a Shopee; se faltar oferta, a rodada sai menor e fica aviso.
-  Na simulação de 05/11 (sem histórico), a Shopee achou no máximo 120 de 160 por dia.
+  Com 26 categorias, a simulação de 05/11 (sem histórico) achou 228 de 300 por dia, e a regra de não repetir por 30 dias tende a reduzir isso. Acompanhar os avisos de rodada menor.
   Conferir nos primeiros dias se a Oferta do dia ainda vale às 7h e se o notebook estava ligado.
   Seleção mais rígida: Shopee em rodízio de listas, 30% de desconto, até R$ 100 e 11 categorias;
   repetido compara nome parecido (30 dias) e não sai 2 do mesmo tipo no dia. Exemplos do que

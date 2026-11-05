@@ -65,7 +65,7 @@ DESCONTO_MINIMO = 30   # % (o mesmo do Mercado Livre e da Amazon)
 PRECO_MAXIMO = 100     # R$ (o grupo compra mais coisa barata)
 PRECO_MINIMO = 5       # R$ (abaixo disso costuma ser so a variacao mais barata do anuncio)
 # Se o GitHub atrasar, o lote ainda sai ate esse tanto de horas depois do horario.
-CATEGORIAS_POR_LOTE = 3
+CATEGORIAS_POR_LOTE = 5
 PAUSA_RODADA = (10, 20)  # segundos entre as mensagens de uma rodada
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 CAMPOS_EXTRAS = "shopId productLink ratingStar"
@@ -203,11 +203,17 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> li
     buscas = {2: [], 5: [], 4: []}
     for termo in categorias:
         for sort_type in buscas:
-            try:
-                buscas[sort_type].append(
-                    _buscar_lista(sort_type, termo, random.choice(PAGINAS)))
-            except RuntimeError as erro:
-                print(f"  Aviso: busca '{termo or 'geral'}' falhou ({erro}).")
+            # A Shopee as vezes devolve "System Error" numa busca: tenta mais uma vez.
+            for tentativa in (1, 2):
+                try:
+                    buscas[sort_type].append(
+                        _buscar_lista(sort_type, termo, random.choice(PAGINAS)))
+                    break
+                except RuntimeError as erro:
+                    if tentativa == 2:
+                        print(f"  Aviso: busca '{termo or 'geral'}' falhou ({erro}).")
+                    else:
+                        time.sleep(2)
 
     vendidos = [p for p in _juntar(buscas[2]) if _passa_no_filtro(p, bloqueadas)]
     comissao = [p for p in _juntar(buscas[5]) if _passa_no_filtro(p, bloqueadas)]

@@ -37,11 +37,18 @@ CHAVE_HISTORICO_ANTIGA = "robo_whatsapp:historico"
 
 DIAS_SEM_REPETIR = 30
 TOLERANCIA_RODADA_MIN = 20
-MAX_LOG = 300  # precisa cobrir o dia todo: os tipos de hoje saem daqui
+MAX_LOG = 400  # precisa cobrir o dia todo: os tipos de hoje saem daqui
 
 LOJAS = ["Mercado Livre", "Amazon", "Shopee", "Shein", "Temu", "Magalu", "Outra"]
 
 CATEGORIAS_PADRAO = [
+    "casa", "cozinha", "jardim", "beleza", "utensilios domesticos", "plantas", "pet", "banheiro",
+    "decoracao", "maquiagem", "organizador", "vaso de planta", "infantil", "lavanderia", "iluminacao",
+    "skincare", "achadinhos", "cama mesa banho", "papelaria", "moda feminina", "limpeza", "churrasco",
+    "acessorios celular", "viagem", "festa", "ferramentas jardim",
+]
+# Lista anterior: se ainda for a salva na pagina, passa a valer a nova.
+_CATEGORIAS_ANTIGAS = [
     "casa", "cozinha", "beleza", "maquiagem", "skincare", "moda feminina",
     "pet", "infantil", "organizacao", "cama mesa banho", "limpeza",
 ]
@@ -91,7 +98,7 @@ CONFIG_PADRAO = {
     "ativo": True,
     "horarios": [9, 12, 19],  # antigo: o robo agora usa as rodadas abaixo
     # Envio automatico: em cada horario, sai a rodada inteira de uma vez.
-    "rodadas": ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"],
+    "rodadas": [f"{hora:02d}:00" for hora in range(7, 22)],  # de hora em hora
     "ofertas_por_rodada": 20,
     "por_lote": 3,           # botao "Enviar agora": produtos de uma vez
     "fila_por_lote": 1,      # botao "Enviar agora": quantos vem da fila
@@ -198,6 +205,8 @@ def ler_config() -> dict:
     config = dict(CONFIG_PADRAO)
     if isinstance(salvo, dict):
         config.update({k: v for k, v in salvo.items() if k in CONFIG_PADRAO})
+        if config.get("categorias") == _CATEGORIAS_ANTIGAS:
+            config["categorias"] = CATEGORIAS_PADRAO
     return config
 
 
