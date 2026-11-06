@@ -105,6 +105,8 @@ CONFIG_PADRAO = {
     "fila_por_lote": 1,      # botao "Enviar agora": quantos vem da fila
     "cupons_por_lote": 1,    # cupons em cada rodada
     "amazon_tag": "",
+    # Pagina de cupons da Shopee, com o link de afiliada da Keiti (vazio = sem a linha).
+    "link_cupons_shopee": "https://s.shopee.com.br/LoaO11Rus",
     "palavras_bloqueadas": PALAVRAS_BLOQUEADAS_PADRAO,
     "categorias": CATEGORIAS_PADRAO,
     "ganchos": GANCHOS_PADRAO,
@@ -261,7 +263,8 @@ def listar_fila() -> list:
 def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
                       imagem: str = "", observacao: str = "",
                       preco_antigo: str = "", vale_ate: float = 0,
-                      vale_ate_texto: str = "", prioridade: bool = False) -> dict:
+                      vale_ate_texto: str = "", prioridade: bool = False,
+                      cupom: str = "") -> dict:
     item = {
         "id": uuid.uuid4().hex[:8],
         "loja": loja or "Outra",
@@ -271,6 +274,7 @@ def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
         "preco_antigo": preco_antigo.strip(),
         "imagem": imagem.strip(),
         "observacao": observacao.strip(),
+        "cupom": cupom.strip(),  # codigo que vale neste produto (so se for conhecido)
         "criado_em": time.time(),
         "vale_ate": vale_ate,  # hora (epoch) em que a oferta vence; 0 = sem prazo
         "vale_ate_texto": vale_ate_texto,  # o mesmo prazo, para mostrar na pagina

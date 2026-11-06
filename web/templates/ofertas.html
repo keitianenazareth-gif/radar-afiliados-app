@@ -55,7 +55,7 @@
                     {% if item.imagem %}<img src="{{ item.imagem }}" alt="" loading="lazy">{% endif %}
                     <div class="wa-item-info">
                         <strong>{{ loop.index }}. {{ item.nome }}</strong>
-                        <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}{% if item.vale_ate_texto %} · ⏰ vale até {{ item.vale_ate_texto }}{% endif %}{% if item.prioridade %} · sai primeiro{% endif %}</span>
+                        <span class="linhas-info">{{ item.loja }}{% if item.preco %} · R$ {{ item.preco|replace('R$', '')|trim }}{% endif %}{% if item.vale_ate_texto %} · ⏰ vale até {{ item.vale_ate_texto }}{% endif %}{% if item.prioridade %} · sai primeiro{% endif %}{% if item.cupom %} · 🎟️ {{ item.cupom }}{% endif %}</span>
                         <a href="{{ item.link }}" target="_blank" rel="noopener" class="link-pequeno">abrir link</a>
                     </div>
                     <div class="wa-item-acoes">
@@ -84,6 +84,7 @@
                         <label class="rotulo">Nome (opcional)<input type="text" name="nome"></label>
                         <label class="rotulo">Preço (opcional)<input type="text" name="preco" placeholder="Ex.: 89,90"></label>
                         <label class="rotulo">Detalhe extra (opcional)<input type="text" name="observacao" placeholder="Ex.: Frete grátis"></label>
+                        <label class="rotulo">Código do cupom (opcional)<input type="text" name="cupom" placeholder="Só se você souber que vale neste produto"></label>
                         <label class="rotulo">Link da foto (opcional)<input type="url" name="imagem" placeholder="https://..."></label>
                         <button type="submit" class="botao botao-destaque">ADICIONAR NA FILA</button>
                     </form>

@@ -46,7 +46,7 @@ except ImportError:
 RADAR_URL = os.environ.get("RADAR_URL", "https://radar-afiliados-web.onrender.com")
 VALIDADE_HORAS = 6
 FUSO = timezone(timedelta(hours=-3))  # Brasilia; o Windows nao traz a base de fusos
-CAMPOS = ("link", "nome", "preco", "preco_antigo", "imagem", "observacao")
+CAMPOS = ("link", "nome", "preco", "preco_antigo", "imagem", "observacao", "cupom")
 CAMPOS_CUPOM = ("link", "descricao", "detalhes", "validade", "como_ativar")
 # Os cupons do Mercado Livre nao tem codigo: a pessoa ativa no app. O link
 # e' de afiliada para um produto em que o cupom vale.

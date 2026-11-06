@@ -327,6 +327,8 @@ class Estilo:
         config = config or {}
         self.ganchos = list(config.get("ganchos") or dados.GANCHOS_PADRAO)
         self.chamadas = list(config.get("chamadas") or dados.CHAMADAS_PADRAO)
+        self.link_cupons = str(config.get("link_cupons_shopee",
+                                          dados.CONFIG_PADRAO["link_cupons_shopee"]) or "")
         self.usados: set = set()
 
     def gancho(self, desconto: float = 0, vendas: float = 0, preco: float = 0) -> str:
@@ -373,8 +375,11 @@ def _prova_social(nota: float, vendas: float) -> str:
     return " · ".join(extras)
 
 
-def _final(estilo: Estilo, link: str) -> list:
-    return ["", estilo.chamada(), f"{link}", "", RODAPE]
+def _final(estilo: Estilo, link: str, cupons_shopee: bool = False) -> list:
+    linhas = ["", estilo.chamada(), f"{link}"]
+    if cupons_shopee and estilo.link_cupons:
+        linhas += ["", "🎟️ Resgate seus cupons aqui:", estilo.link_cupons]
+    return linhas + ["", RODAPE]
 
 
 def mensagem_shopee(p: dict, link: str, estilo: Estilo | None = None,
@@ -396,7 +401,7 @@ def mensagem_shopee(p: dict, link: str, estilo: Estilo | None = None,
     if social:
         linhas.append(social)
     linhas.append("🏬 Shopee")
-    return "\n".join(linhas + _final(estilo, link))
+    return "\n".join(linhas + _final(estilo, link, cupons_shopee=True))
 
 
 def _valor_do_texto(texto: str) -> float:
@@ -436,8 +441,12 @@ def mensagem_fila(item: dict, estilo: Estilo | None = None, nome: str = "") -> s
         linhas.append(f"Por *{preco}*")
     if observacao:
         linhas.append(observacao)
+    cupom = str(item.get("cupom") or "").strip()
+    if cupom:
+        linhas.append(f"🎟️ Use o cupom: *{cupom}*")
     linhas.append(f"🏬 {item.get('loja') or 'Oferta'}")
-    return "\n".join(linhas + _final(estilo, item.get("link")))
+    return "\n".join(linhas + _final(estilo, item.get("link"),
+                                     cupons_shopee=item.get("loja") == "Shopee"))
 
 
 def mensagem_cupom(cupom: dict, estilo: Estilo | None = None) -> str:

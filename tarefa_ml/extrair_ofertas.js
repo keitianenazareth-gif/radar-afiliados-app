@@ -51,6 +51,8 @@
       vendas: vendas ? Number(vendas[1]) * ({ mil: 1000, M: 1000000 }[vendas[2]] || 1) : 0,
       selo: selo ? selo[1] : '',
       relampago,
+      // O card avisa que tem cupom; a condicao so aparece na pagina do produto.
+      com_cupom: /com Cupom/i.test(texto),
     };
   }).filter(o => o.nome && o.produto_url && o.preco > 0);
 })()

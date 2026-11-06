@@ -25,7 +25,7 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    `tarefa_ml\extrair_ofertas.js` com a ferramenta de javascript (ele rola a
    página sozinho). A lista traz nome, produto_url, imagem, preco,
    preco_condicao/condicao, preco_antigo, desconto, ganho, ganho_extra, nota,
-   vendas, selo e relampago. Se vier vazia ou pedir login, PARAR e avisar a
+   vendas, selo, relampago e com_cupom. Se vier vazia ou pedir login, PARAR e avisar a
    Keiti (não tentar fazer login).
 
    - **Comissão maior:** abrir `https://www.mercadolivre.com.br/afiliados/hub`,
@@ -100,6 +100,17 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      preenchida, ponha o `preco_condicao` na observação ("💸 ... no Pix" ou
      "💳 ... com crédito disponível").
    - Não inventar nada: nome, preços e foto vêm só do passo 1.
+   - Cupom do produto: quando `com_cupom` vier `true`, abrir a página do produto
+     e ler
+     `document.querySelector('.ui-vpp-coupons-awareness')?.innerText`, sem marcar
+     a caixa e sem clicar em "Ver cupons disponíveis". Se a primeira linha trouxer
+     o benefício e o produto alcançar a compra mínima, acrescentar na observação
+     uma linha "🎟️ <primeira linha> com cupom na página do produto". Se a compra
+     mínima for maior que o preço, ou se não der para ler, não falar de cupom.
+     Exemplo a pular: "Compre R$ 399 e ganhe 10% OFF" num creme de R$ 36,94.
+   - Código do cupom: só com o código escrito na página, no campo
+     `"cupom": "CODIGO"`. O Mercado Livre costuma ativar o cupom sem código, então
+     o normal é este campo ficar de fora. Nunca adivinhar um código.
    - Prazo: o `fila_ml.py` coloca 6 horas em toda oferta. Se ela vencer antes de
      sair, o robô descarta. Só escrever `vale_ate_hora` e `prioridade` na
      `OFERTA DO DIA`.
