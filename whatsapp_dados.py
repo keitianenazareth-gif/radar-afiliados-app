@@ -103,7 +103,7 @@ CONFIG_PADRAO = {
     "ofertas_por_rodada": 20,
     "por_lote": 3,           # botao "Enviar agora": produtos de uma vez
     "fila_por_lote": 1,      # botao "Enviar agora": quantos vem da fila
-    "cupons_por_lote": 1,    # cupons em cada rodada
+    "cupons_por_lote": 1,    # botao "Enviar agora": cupons de uma vez
     "amazon_tag": "",
     # Pagina de cupons da Shopee, com o link de afiliada da Keiti (vazio = sem a linha).
     "link_cupons_shopee": "https://s.shopee.com.br/LoaO11Rus",

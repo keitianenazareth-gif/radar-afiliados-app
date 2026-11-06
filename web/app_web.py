@@ -1056,8 +1056,8 @@ def whatsapp_cupons_adicionar():
                        minimo=request.form.get("minimo", ""), limite=request.form.get("limite", ""))
     if em_json:
         return _responder(True, f"✅ Cupom cadastrado: {descricao or codigo}", "adicionado")
-    return _responder(True, "✅ Cupom cadastrado. Ele sai em uma das próximas rodadas (no máximo "
-                      "1x por dia, até vencer).", "adicionado")
+    return _responder(True, "✅ Cupom cadastrado. Ele sai na primeira rodada do dia (1x por dia, "
+                      "até vencer). Para soltar antes, use \"Usar na rodada\".", "adicionado")
 
 
 @app.route("/whatsapp/cupons/remover/<cupom_id>", methods=["POST"])
@@ -1150,7 +1150,7 @@ def cupom_usar(cupom_id):
     import whatsapp_dados as wd
 
     wd.atualizar_cupom(cupom_id, prioridade=True)
-    flash("✅ Este cupom sai primeiro na próxima rodada com espaço para cupom.")
+    flash("✅ Este cupom sai na próxima rodada.")
     return redirect(url_for("cupons"))
 
 

@@ -479,6 +479,14 @@ def mensagem_cupom(cupom: dict, estilo: Estilo | None = None) -> str:
     return "\n".join(linhas)
 
 
+def mensagem_link_cupons(estilo: Estilo) -> str:
+    return "\n".join([
+        "🎟️ *Cupons da Shopee*", "",
+        "Resgate seus cupons aqui 👇", estilo.link_cupons, "",
+        "_Cupons podem esgotar antes do prazo._",
+    ])
+
+
 # ================================================================ montar o lote
 
 def _misturar(fila: list, shopee: list) -> list:
@@ -489,7 +497,7 @@ def _misturar(fila: list, shopee: list) -> list:
 
 
 def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
-                com_cupom: bool = True) -> list:
+                com_cupom: bool = True, primeira_do_dia: bool = False) -> list:
     """Devolve a lista de mensagens do proximo lote, cada uma como
     {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "quantidade"
     (rodada), usa a fila toda que couber e completa com a Shopee; sem ela
@@ -498,13 +506,25 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
     hoje = dados.agora_brasil().strftime("%Y-%m-%d")
     estilo = Estilo(config)
 
-    # 1) Cupom: o mais antigo que ainda nao saiu hoje.
-    qtd_cupons = int(config.get("cupons_por_lote") or 0) if com_cupom else 0
-    if qtd_cupons > 0:
+    # 1) Cupons esgotam rapido: abrem a primeira rodada do dia, antes das ofertas.
+    if quantidade and primeira_do_dia and estilo.link_cupons:
+        lote.append({
+            "tipo": "link_cupons", "titulo": "Link de cupons da Shopee",
+            "texto": mensagem_link_cupons(estilo), "imagem": "",
+            "link": estilo.link_cupons, "ref": "",
+        })
+    if com_cupom:
         cupons = [c for c in dados.listar_cupons()
                   if dados.cupom_valido(c, hoje) and c.get("ultimo_envio") != hoje]
         cupons.sort(key=lambda c: not c.get("prioridade"))  # "Usar na rodada" sai primeiro
-        for c in cupons[:qtd_cupons]:
+        if not quantidade:
+            # Botao "Enviar agora" e previa: segue o ajuste da pagina.
+            cupons = cupons[:max(0, int(config.get("cupons_por_lote") or 0))]
+        elif not primeira_do_dia:
+            # Depois da primeira rodada, so "Usar na rodada" e os cupons da
+            # tarefa que chegaram atrasados: esses nao podem esperar ate amanha.
+            cupons = [c for c in cupons if c.get("prioridade") or c.get("uma_vez")]
+        for c in cupons:
             lote.append({
                 "tipo": "cupom",
                 "titulo": f"Cupom {c.get('loja')}: {c.get('codigo') or c.get('descricao')}",
@@ -670,7 +690,8 @@ def _depois_de_enviar(msg: dict) -> None:
         dados.salvar_historico(historico)
 
 
-def enviar_lote(origem: str = "automatico", quantidade: int = 0) -> int:
+def enviar_lote(origem: str = "automatico", quantidade: int = 0,
+                primeira_do_dia: bool = False) -> int:
     """Monta e envia um lote. Devolve quantas mensagens foram enviadas."""
     faltando = whatsapp_configurado()
     if faltando:
@@ -686,14 +707,14 @@ def enviar_lote(origem: str = "automatico", quantidade: int = 0) -> int:
             print(f"Oferta vencida, nao enviada: {vencida.get('nome')}")
             dados.registrar("aviso", f"Oferta vencida, não enviada: {vencida.get('nome')}",
                             vencida.get("link", ""), ok=False, origem=origem)
-        lote = montar_lote(config, quantidade=quantidade)
+        lote = montar_lote(config, quantidade=quantidade, primeira_do_dia=primeira_do_dia)
         if not lote:
             print("Nada para enviar agora (sem ofertas novas, fila e cupons vazios).")
             dados.registrar("aviso", "Lote vazio: nenhuma oferta nova encontrada",
                             ok=False, origem=origem)
             return 0
 
-        ofertas = sum(1 for m in lote if m["tipo"] != "cupom")
+        ofertas = sum(1 for m in lote if m["tipo"] not in ("cupom", "link_cupons"))
         if quantidade and ofertas < quantidade:
             aviso = f"Rodada menor: {ofertas} de {quantidade} ofertas (faltou oferta nova que passe nas regras)"
             print(aviso)
@@ -734,6 +755,12 @@ def enviar_lote(origem: str = "automatico", quantidade: int = 0) -> int:
 
 # ================================================================ principal
 
+def _primeira_do_dia(agora) -> bool:
+    """Ainda nao saiu rodada hoje? Olha a ultima rodada em vez do horario, para
+    os cupons sairem mesmo se a primeira rodada for perdida."""
+    return not dados.ler_ultimo_lote().startswith(f"{agora:%Y-%m-%d} ")
+
+
 def rodar_agendado() -> None:
     """Chamado a cada 10 minutos pelo Railway: se for hora de uma rodada,
     manda ela inteira, uma vez so."""
@@ -754,8 +781,10 @@ def rodar_agendado() -> None:
         print("WhatsApp ainda nao configurado (falta: " + ", ".join(faltando) + "). Nada enviado.")
         _aviso_actions("warning", "WhatsApp nao configurado", "Falta: " + ", ".join(faltando))
         return
+    primeira = _primeira_do_dia(agora)
     dados.marcar_ultimo_lote(rodada["marca"])
-    enviados = enviar_lote("automatico", int(config.get("ofertas_por_rodada") or 0))
+    enviados = enviar_lote("automatico", int(config.get("ofertas_por_rodada") or 0),
+                           primeira_do_dia=primeira)
     if enviados == 0:
         _aviso_actions("warning", "Lote vazio", "Nenhuma mensagem foi enviada neste horario.")
 
@@ -763,7 +792,8 @@ def rodar_agendado() -> None:
 def rodar_teste() -> None:
     config = dados.ler_config()
     print(f"Robo {'LIGADO' if config.get('ativo') else 'PAUSADO'} | rodadas {config.get('rodadas')}")
-    lote = montar_lote(config, quantidade=int(config.get("ofertas_por_rodada") or 0))
+    lote = montar_lote(config, quantidade=int(config.get("ofertas_por_rodada") or 0),
+                       primeira_do_dia=_primeira_do_dia(dados.agora_brasil()))
     if not lote:
         print("Lote vazio.")
         _aviso_actions("warning", "Lote vazio", "Nenhuma oferta, item da fila ou cupom disponivel.")
