@@ -200,7 +200,8 @@ def nome_da_arte(nome: str, limite: int = 26) -> str:
     termos de anuncio ("kit", "1/2 peças", nome da loja)."""
     palavras = []
     for p in str(nome).replace("|", " ").replace(",", " ").replace(":", " ").split():
-        if any(ch.isdigit() for ch in p) or "/" in p or p.lower() in _PALAVRAS_FORA:
+        if (any(ch.isdigit() for ch in p) or "/" in p or p.lower() in _PALAVRAS_FORA
+                or not any(ch.isalpha() for ch in p)):
             continue
         if len(" ".join(palavras + [p])) > limite:
             break
