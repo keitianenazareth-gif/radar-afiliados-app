@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Stories do dia - Radar Afiliados{% endblock %}
+{% block conteudo %}
+<div class="wa-pagina">
+    <h1>Stories do dia</h1>
+    <p class="subtitulo">Artes de promoção para você postar pelo celular, com a figurinha de link</p>
+
+    {% for mensagem in get_flashed_messages() %}
+    <p class="aviso">{{ mensagem }}</p>
+    {% endfor %}
+    {% if erro %}<p class="aviso aviso-amarelo">⚠️ {{ erro }}</p>{% endif %}
+
+    <div class="card">
+        <strong>Como postar</strong>
+        <p class="linhas-info">1. Toque e segure a arte para salvar no celular. 2. No Instagram, poste como story.
+            3. Toque na figurinha <b>Link</b>, cole o link (botão COPIAR LINK) e coloque em cima de "link aqui".</p>
+        <form action="{{ url_for('instagram_publicar_stories_gerar') }}" method="post" class="form-gerar">
+            <button type="submit" class="botao {{ 'botao-secundario' if de_hoje else 'botao-primario' }} botao-largo">
+                {{ 'GERAR OUTRO KIT' if kit else 'GERAR KIT DE HOJE' }}</button>
+        </form>
+        <p class="linhas-info">Leva cerca de 1 minuto. Busca ofertas da Shopee com foto de ambiente,
+            desconto de 40% ou mais e nota 4,6 ou mais.</p>
+    </div>
+
+    {% if kit and kit.itens %}
+    <p class="linhas-info">Kit gerado em {{ kit.gerado }}{% if not de_hoje %} (não é de hoje: os preços podem
+        ter mudado){% endif %}.</p>
+    {% for item in kit.itens %}
+    <div class="card story-item">
+        <strong>{{ loop.index }}. {{ item.nome }}</strong>
+        <img src="{{ item.arte }}" alt="Story de {{ item.nome }}" loading="lazy"
+             style="width:100%;max-width:360px;border-radius:12px;display:block;margin:10px 0">
+        <p class="linhas-info">A partir de R$ {{ item.preco }} · {{ item.desconto }}% OFF</p>
+        <input type="text" readonly value="{{ item.link }}" id="link-{{ loop.index }}" aria-label="Link do produto">
+        <button type="button" class="botao botao-primario copiar-link" data-alvo="link-{{ loop.index }}">COPIAR LINK</button>
+        <a href="{{ item.arte }}" target="_blank" rel="noopener" class="link-pequeno">Abrir a arte em tamanho real</a>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}
+{% block script %}
+<script>
+document.querySelectorAll(".copiar-link").forEach((botao) => {
+    botao.addEventListener("click", () => {
+        const campo = document.getElementById(botao.dataset.alvo);
+        const pronto = () => { botao.textContent = "COPIADO ✓"; setTimeout(() => botao.textContent = "COPIAR LINK", 2000); };
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(campo.value).then(pronto).catch(() => { campo.select(); document.execCommand("copy"); pronto(); });
+        } else { campo.select(); document.execCommand("copy"); pronto(); }
+    });
+});
+document.querySelectorAll(".form-gerar").forEach((f) => f.addEventListener("submit", () => {
+    const b = f.querySelector("button"); b.disabled = true; b.textContent = "MONTANDO O KIT...";
+}));
+</script>
+{% endblock %}

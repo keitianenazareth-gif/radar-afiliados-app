@@ -709,6 +709,35 @@ def instagram_publicar():
     )
 
 
+@app.route("/instagram-publicar/stories-do-dia")
+def instagram_publicar_stories():
+    from web import stories_dia
+
+    erro = ""
+    try:
+        kit = stories_dia.ler_kit()
+    except RuntimeError as e:
+        kit, erro = {}, str(e)
+    return render_template("stories_dia.html", kit=kit, erro=erro,
+                           de_hoje=bool(kit) and stories_dia.kit_e_de_hoje(kit))
+
+
+@app.route("/instagram-publicar/stories-do-dia/gerar", methods=["POST"])
+def instagram_publicar_stories_gerar():
+    from web import galeria, stories_dia
+
+    try:
+        from campanhas_ia import encurtar_nomes
+    except ImportError:
+        encurtar_nomes = None
+    try:
+        kit = stories_dia.gerar_kit(encurtar_nomes)
+        flash(f"✅ Kit pronto: {len(kit['itens'])} stories.")
+    except (stories_dia.StoriesError, galeria.GaleriaError, RuntimeError) as erro:
+        flash(f"⚠️ Não consegui montar o kit: {erro}")
+    return redirect(url_for("instagram_publicar_stories"))
+
+
 @app.route("/instagram-publicar/story", methods=["POST"])
 def instagram_publicar_story():
     """Publica uma foto como story. Sem figurinha: a API da Meta nao permite."""

@@ -16,6 +16,9 @@
         <p class="linhas-info">{{ erro_galeria }}</p></div>
     {% endif %}
 
+    <p class="linhas-info"><a href="{{ url_for('instagram_publicar_stories') }}" class="link-pequeno">📲 Stories do dia:
+        artes de promoção com o link de cada uma, para postar pelo celular</a></p>
+
     <form action="{{ url_for('instagram_publicar') }}" method="post" enctype="multipart/form-data" id="form-publicar">
         <div class="abas" role="radiogroup" aria-label="Tipo de post">
             <label class="aba"><input type="radio" name="modo" value="produtos" {{ 'checked' if form.modo != 'diferente' }}>
