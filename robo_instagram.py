@@ -60,7 +60,7 @@ PAUSA = (3, 8)  # segundos entre uma mensagem e outra
 ERROS_PARA_PARAR = {4, 17, 32, 190, 613}  # limite de uso ou token invalido
 
 FOTOS = "https://clube-doquero.vercel.app/imagens/"
-GRUPO = "https://chat.whatsapp.com/Cni0DXs99cx6vwDDwCSX9f"
+GRUPO = "https://chat.whatsapp.com/KzZ1GGjCru9FnmH0U4Jvs4"
 
 # Comentarios dos testes de 05/11, que ja receberam mensagem.
 JA_RESPONDIDOS_NOS_TESTES = (
