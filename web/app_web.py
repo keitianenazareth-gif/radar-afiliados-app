@@ -709,6 +709,31 @@ def instagram_publicar():
     )
 
 
+@app.route("/instagram-publicar/story", methods=["POST"])
+def instagram_publicar_story():
+    """Publica uma foto como story. Sem figurinha: a API da Meta nao permite."""
+    from web import galeria
+    from web.instagram_publish import InstagramPublishError, publicar_story
+
+    arquivo = request.files.get("story")
+    if not arquivo or not arquivo.filename or not (arquivo.mimetype or "").startswith("image/"):
+        flash("⚠️ Escolha uma foto para o story.")
+        return redirect(url_for("instagram_publicar") + "#story")
+    nome = secure_filename(arquivo.filename) or "story.jpg"
+    caminho = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4().hex}-{nome}")
+    arquivo.save(caminho)
+    try:
+        item = galeria.adicionar_item(caminho, "imagem", nome_original=nome)
+        media_id = publicar_story(item["url"])
+    except (galeria.GaleriaError, InstagramPublishError) as erro:
+        flash(f"⚠️ O story não foi publicado: {erro}")
+        return redirect(url_for("instagram_publicar") + "#story")
+    finally:
+        os.remove(caminho)
+    flash(f"✅ Story publicado (código {media_id}). Ele fica no ar por 24 horas.")
+    return redirect(url_for("instagram_publicar") + "#story")
+
+
 @app.route("/instagram-publicar/confirmar", methods=["POST"])
 def instagram_publicar_confirmar():
     import json

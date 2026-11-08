@@ -214,6 +214,14 @@ def publicar_midias(itens: list, legenda: str) -> str:
     return publicar_container(container)
 
 
+def publicar_story(url_foto: str) -> str:
+    """Publica 1 foto como story (a API nao poe figurinha de link nem enquete).
+    Devolve o media_id."""
+    container = _criar_container({"media_type": "STORIES", "image_url": url_para_foto(url_foto)}, "o story")
+    _esperar_container(container)
+    return publicar_container(container)
+
+
 def dados_da_midia(media_id: str) -> dict:
     """Devolve shortcode (o codigo do post) e permalink (o link dele)."""
     _checar_credenciais()

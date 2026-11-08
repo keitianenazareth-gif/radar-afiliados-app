@@ -80,6 +80,16 @@
         <p class="linhas-info">Nada é publicado neste passo.</p>
     </form>
 
+    <form action="{{ url_for('instagram_publicar_story') }}" method="post" enctype="multipart/form-data"
+          class="card" id="story">
+        <strong>Story</strong>
+        <p class="linhas-info">Uma foto em pé (1080 x 1920). Pela API não dá para pôr figurinha de link
+            nem enquete: use uma chamada como "responde QUERO". Sai na hora e fica 24 horas no ar.</p>
+        <label class="rotulo" for="story-arquivo">Foto do story</label>
+        <input type="file" id="story-arquivo" name="story" accept="image/*" required>
+        <button type="submit" class="botao botao-primario botao-largo">PUBLICAR STORY</button>
+    </form>
+
     {% if publicados %}
     <div class="card">
         <strong>Últimos publicados por aqui</strong>
