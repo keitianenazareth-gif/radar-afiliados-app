@@ -709,6 +709,35 @@ def instagram_publicar():
     )
 
 
+@app.route("/api/instagram/teste-resposta-story")
+def instagram_teste_resposta_story():
+    """TEMPORARIA, so leitura: a Meta diz a qual story a mensagem respondeu?
+    Devolve so os campos que existem e o codigo do story, sem texto nem nomes."""
+    import robo_instagram as ri
+    from web import instagram_publish as ig
+
+    saida = []
+    try:
+        corpo = ri._ler_meta(f"{ig.INSTAGRAM_USER_ID}/conversations",
+                             {"platform": "instagram", "fields": "id,updated_time", "limit": 5})
+        for conversa in corpo.get("data", []):
+            resumo = ri._ler_meta(conversa["id"], {"fields": "messages"}).get("messages", {}).get("data", [])[:5]
+            for m in resumo:
+                msg = ri._ler_meta(m["id"], {"fields": "id,created_time,message,story,attachments"})
+                story = msg.get("story") or {}
+                saida.append({
+                    "quando": msg.get("created_time"),
+                    "campos": sorted(k for k in msg if k not in ("message",)),
+                    "eh_quero": ri.eh_quero(str(msg.get("message") or "")),
+                    "story_tipo": sorted(story.keys()),
+                    "story_id": (story.get("reply_to") or story.get("mention") or {}).get("id"),
+                    "tem_link_story": bool((story.get("reply_to") or story.get("mention") or {}).get("link")),
+                })
+    except (ig.InstagramPublishError, RuntimeError) as erro:
+        return jsonify({"ok": False, "erro": str(erro)})
+    return jsonify({"ok": True, "mensagens": saida})
+
+
 @app.route("/instagram-publicar/stories-do-dia")
 def instagram_publicar_stories():
     from web import stories_dia
