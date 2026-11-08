@@ -709,35 +709,6 @@ def instagram_publicar():
     )
 
 
-@app.route("/api/instagram/teste-resposta-story")
-def instagram_teste_resposta_story():
-    """TEMPORARIA, so leitura: a Meta diz a qual story a mensagem respondeu?
-    Devolve so os campos que existem e o codigo do story, sem texto nem nomes."""
-    import robo_instagram as ri
-    from web import instagram_publish as ig
-
-    saida = []
-    try:
-        corpo = ri._ler_meta(f"{ig.INSTAGRAM_USER_ID}/conversations",
-                             {"platform": "instagram", "fields": "id,updated_time", "limit": 5})
-        for conversa in corpo.get("data", []):
-            resumo = ri._ler_meta(conversa["id"], {"fields": "messages"}).get("messages", {}).get("data", [])[:5]
-            for m in resumo:
-                msg = ri._ler_meta(m["id"], {"fields": "id,created_time,message,story,attachments"})
-                story = msg.get("story") or {}
-                saida.append({
-                    "quando": msg.get("created_time"),
-                    "campos": sorted(k for k in msg if k not in ("message",)),
-                    "eh_quero": ri.eh_quero(str(msg.get("message") or "")),
-                    "story_tipo": sorted(story.keys()),
-                    "story_id": (story.get("reply_to") or story.get("mention") or {}).get("id"),
-                    "tem_link_story": bool((story.get("reply_to") or story.get("mention") or {}).get("link")),
-                })
-    except (ig.InstagramPublishError, RuntimeError) as erro:
-        return jsonify({"ok": False, "erro": str(erro)})
-    return jsonify({"ok": True, "mensagens": saida})
-
-
 @app.route("/instagram-publicar/stories-do-dia")
 def instagram_publicar_stories():
     from web import stories_dia
@@ -788,7 +759,38 @@ def instagram_publicar_story():
         return redirect(url_for("instagram_publicar") + "#story")
     finally:
         os.remove(caminho)
-    flash(f"✅ Story publicado (código {media_id}). Ele fica no ar por 24 horas.")
+    import robo_instagram as ri
+
+    titulos = request.form.getlist("produto_titulo")
+    fotos = request.form.getlist("produto_foto")
+    links = request.form.getlist("produto_link")
+    _completar_produtos(titulos, fotos, links)
+    produtos, _ = ri.produtos_do_formulario(titulos, fotos, links, item["url"])
+    if produtos:
+        try:
+            ri.ligar_story(media_id, request.form.get("nome", ""), produtos)
+            flash(f"✅ Story publicado e ligado ao robô do QUERO ({len(produtos)} produtos). "
+                  "Ele fica no ar por 24 horas.")
+        except RuntimeError as erro:
+            flash(f"⚠️ Story publicado (código {media_id}), mas não liguei ao robô: {erro}")
+    else:
+        flash(f"✅ Story publicado (código {media_id}). Ele fica no ar por 24 horas.")
+    return redirect(url_for("instagram_publicar") + "#story")
+
+
+@app.route("/instagram-publicar/story/ligar", methods=["POST"])
+def instagram_ligar_story():
+    """Liga ao robo um story ja publicado: codigo do story e uma linha por produto
+    (titulo | link da foto | link do produto)."""
+    import robo_instagram as ri
+
+    codigo = re.sub(r"\D", "", request.form.get("codigo", ""))
+    produtos, problemas = ri.ler_produtos(request.form.get("produtos", ""))
+    if not codigo or problemas:
+        flash("⚠️ " + (" ".join(problemas) or "Informe o código do story."))
+    else:
+        ri.ligar_story(codigo, request.form.get("nome", ""), produtos)
+        flash(f"✅ Story {codigo} ligado ao robô do QUERO ({len(produtos)} produtos).")
     return redirect(url_for("instagram_publicar") + "#story")
 
 

@@ -24,7 +24,9 @@ Tudo fica no Upstash (mesmo banco do robo do WhatsApp):
 
 Direct (chave propria, tambem comeca desligada): responde so quem escreveu nas
 ultimas 24 horas (regra da Meta). A primeira mensagem recebe o convite do grupo
-e "quero" recebe os cartoes do ultimo post cadastrado. Assunto de pedido, conversa
+e "quero" recebe os cartoes: respondendo um story publicado pelo Radar, os
+produtos daquele story (a Meta informa qual foi); outro story, os do ultimo
+story cadastrado; mensagem comum, os do ultimo post cadastrado. Assunto de pedido, conversa
 que a Keiti ja esta atendendo e qualquer outra mensagem nao recebem resposta:
 ficam como aviso no relatorio.
 """
@@ -49,6 +51,7 @@ CHAVE_TRAVA = "instagram:trava"
 CHAVE_DIRECT = "instagram:direct"
 CHAVE_PUBLICADOS = "instagram:publicados"
 MAX_PUBLICADOS = 30
+MAX_STORIES = 30
 
 DIAS_LIMITE_META = 7
 DIAS_GUARDAR_CODIGO = 14
@@ -72,6 +75,8 @@ CONFIG_PADRAO = {
     "ativo": False,
     "direct_ativo": False,
     "max_por_vez": 20,
+    # Stories publicados pelo Radar: {codigo do story: {nome, produtos, quando}}
+    "stories": {},
     "posts": {
         "DfVzEmJjki8": {
             "nome": "Carrossel 01: parece caro, mas não é",
@@ -218,6 +223,35 @@ def ligar_post(codigo: str, nome: str, produtos: list, palavra: str = "") -> Non
     posts = dict(ler_config().get("posts") or {})
     posts[codigo] = {"nome": nome.strip()[:80], "produtos": produtos, "palavra": palavra.strip()[:30]}
     salvar_config({"posts": posts})
+
+
+def ligar_story(codigo: str, nome: str, produtos: list) -> None:
+    """Guarda os produtos de um story; quem responder QUERO a ele recebe esses links."""
+    stories = dict(ler_config().get("stories") or {})
+    stories[str(codigo)] = {"nome": nome.strip()[:80] or "Story", "produtos": produtos, "quando": time.time()}
+    recentes = sorted(stories.items(), key=lambda kv: kv[1].get("quando", 0))[-MAX_STORIES:]
+    salvar_config({"stories": dict(recentes)})
+
+
+def story_respondido(mensagem: dict) -> str:
+    """Codigo do story que a mensagem respondeu, ou "" se nao for resposta de story."""
+    story = mensagem.get("story") or {}
+    return str((story.get("reply_to") or {}).get("id") or "")
+
+
+def conteudo_dos_cartoes(mensagem: dict, config: dict) -> tuple:
+    """(alvo, post) para os cartoes: o story respondido, o ultimo story ou o ultimo post."""
+    stories = config.get("stories") or {}
+    posts = list((config.get("posts") or {}).values())
+    codigo = story_respondido(mensagem)
+    if codigo and codigo in stories:
+        return f"story:{codigo}", stories[codigo]
+    if codigo and stories:
+        ultimo = max(stories.items(), key=lambda kv: kv[1].get("quando", 0))
+        return f"story:{ultimo[0]}", ultimo[1]
+    if posts:
+        return "post", posts[-1]
+    return "", {}
 
 
 def reservar_publicacao(token: str) -> bool:
@@ -426,7 +460,11 @@ def decidir_direct(mensagens: list, situacao: dict, eh_minha, robo: dict) -> str
         return "avisar"  # a Keiti ja escreveu nessa conversa
     texto = str(ultima.get("message") or "")
     if eh_quero(texto):
-        return "avisar" if time.time() - situacao.get("cartoes", 0) < 86400 else "cartoes"
+        # Mesmos links de novo em menos de 24h: deixa para a Keiti. Outro story: manda.
+        alvo = f"story:{story_respondido(ultima)}" if story_respondido(ultima) else "post"
+        repetido = (time.time() - situacao.get("cartoes", 0) < 86400
+                    and situacao.get("cartoes_alvo", "post") == alvo)
+        return "avisar" if repetido else "cartoes"
     if _ASSUNTO_PARA_PESSOA.search(dados.normalizar(texto)) or situacao.get("boas_vindas"):
         return "avisar"
     return "boas_vindas"
@@ -442,7 +480,7 @@ def _mensagens_da_conversa(conversa_id: str) -> list:
     corpo = _ler_meta(conversa_id, {"fields": "messages"})
     resumo = corpo.get("messages", {}).get("data", [])
     resumo = sorted(resumo, key=lambda m: str(m.get("created_time")), reverse=True)[:MENSAGENS_OLHADAS]
-    return [_ler_meta(m["id"], {"fields": "id,created_time,from,to,message"}) for m in resumo]
+    return [_ler_meta(m["id"], {"fields": "id,created_time,from,to,message,story"}) for m in resumo]
 
 
 def _rodar_direct(config: dict, resumo: dict, estado: dict) -> None:
@@ -466,7 +504,8 @@ def _rodar_direct(config: dict, resumo: dict, estado: dict) -> None:
             continue
         mensagens = _mensagens_da_conversa(cid)
         acao = decidir_direct(mensagens, situacao, eh_minha, estado["robo"])
-        if acao == "cartoes" and not posts:
+        alvo, conteudo = conteudo_dos_cartoes(mensagens[0], config) if acao == "cartoes" else ("", {})
+        if acao == "cartoes" and not conteudo:
             acao = "boas_vindas" if not situacao.get("boas_vindas") else "avisar"
         if acao in ("boas_vindas", "cartoes"):
             resumo["direct_esperando"] += 1
@@ -484,7 +523,7 @@ def _rodar_direct(config: dict, resumo: dict, estado: dict) -> None:
             if envios:
                 time.sleep(random.randint(*PAUSA))
             envios += 1
-            mensagem = montar_mensagem(posts[-1]) if acao == "cartoes" else mensagem_boas_vindas()
+            mensagem = montar_mensagem(conteudo) if acao == "cartoes" else mensagem_boas_vindas()
             situacao_envio, detalhe = _enviar({"id": (mensagens[0].get("from") or {}).get("id")}, mensagem)
             if situacao_envio == "repetir":
                 print(f"Instagram: Direct, tento de novo depois ({detalhe}).")
@@ -499,6 +538,8 @@ def _rodar_direct(config: dict, resumo: dict, estado: dict) -> None:
                 if detalhe:
                     estado["robo"][detalhe] = time.time()
                 novo["boas_vindas" if acao == "boas_vindas" else "cartoes"] = time.time()
+                if acao == "cartoes":
+                    novo["cartoes_alvo"] = alvo
                 _registrar("Direct: convite do grupo enviado" if acao == "boas_vindas"
                            else "Direct: links enviados")
             else:

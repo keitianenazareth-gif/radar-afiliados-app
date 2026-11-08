@@ -90,6 +90,17 @@
             nem enquete: use uma chamada como "responde QUERO". Sai na hora e fica 24 horas no ar.</p>
         <label class="rotulo" for="story-arquivo">Foto do story</label>
         <input type="file" id="story-arquivo" name="story" accept="image/*" required>
+        <label class="rotulo" for="story-nome">Nome (só para você)</label>
+        <input type="text" id="story-nome" name="nome" maxlength="80" placeholder="Ex.: TOP 4 cabelo">
+        <p class="linhas-info">Produtos do story (opcional): quem responder QUERO recebe estes links no Direct.
+            Sem foto, o cartão usa a do story.</p>
+        {% for n in range(1, 5) %}
+        <div class="produto-linha">
+            <label class="rotulo">Produto {{ n }}: link de afiliado<input type="url" name="produto_link" placeholder="https://..."></label>
+            <label class="rotulo">Nome<input type="text" name="produto_titulo" maxlength="80"></label>
+            <label class="rotulo">Link da foto (opcional)<input type="url" name="produto_foto" placeholder="https://..."></label>
+        </div>
+        {% endfor %}
         <button type="submit" class="botao botao-primario botao-largo">PUBLICAR STORY</button>
     </form>
 
