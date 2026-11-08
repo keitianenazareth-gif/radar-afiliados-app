@@ -709,6 +709,49 @@ def instagram_publicar():
     )
 
 
+@app.route("/api/instagram/diagnostico-direct", methods=["GET", "POST"])
+def instagram_diagnostico_direct():
+    """TEMPORARIA. Sem nomes nem textos na resposta."""
+    import robo_instagram as ri
+    from web import instagram_publish as ig
+
+    fim = lambda v: str(v or "")[-4:]
+    try:
+        conta = ri._minha_conta()
+        corpo = ri._ler_meta(f"{ig.INSTAGRAM_USER_ID}/conversations",
+                             {"platform": "instagram", "fields": "id,updated_time,participants", "limit": 5})
+        conversas = []
+        alvo = None
+        for c in corpo.get("data", []):
+            if ri._idade_em_horas(c.get("updated_time")) >= 24:
+                continue
+            msgs = ri._mensagens_da_conversa(c["id"])
+            participantes = [{"fim_id": fim(x.get("id")), "eh_conta": str(x.get("id")) in conta["ids"]}
+                             for x in (c.get("participants") or {}).get("data", [])]
+            itens = [{"quando": m.get("created_time"), "eh_conta": str((m.get("from") or {}).get("id")) in conta["ids"],
+                      "fim_from": fim((m.get("from") or {}).get("id")),
+                      "fim_to": [fim(x.get("id")) for x in (m.get("to") or {}).get("data", [])],
+                      "story": bool(m.get("story")), "tem_texto": bool(str(m.get("message") or "").strip())}
+                     for m in msgs]
+            conversas.append({"fim_conversa": fim(c["id"]), "atualizada": c.get("updated_time"),
+                              "participantes": participantes, "mensagens": itens})
+            if alvo is None and msgs and msgs[0].get("story") and itens[0]["eh_conta"] is False:
+                alvo = (msgs[0].get("from") or {}).get("id")
+        resultado = {"ok": True, "fim_ids_da_conta": sorted(fim(i) for i in conta["ids"]), "conversas": conversas}
+        if request.method == "POST" and alvo:
+            texto = ("Oi! Aqui estão os 4 queridinhos do cabelo 💖\n"
+                     "1. Óleo Extraordinário Elseve: https://s.shopee.com.br/8KqvfRY3u1\n"
+                     "2. Truss Uso Obrigatório: https://s.shopee.com.br/50aThKOLgi\n"
+                     "3. Amend Acidificante: https://s.shopee.com.br/4B1MeREkUm\n"
+                     "4. Tônico Rapunzel Lola: https://s.shopee.com.br/1Bnk83moh\n"
+                     "Preços podem mudar. Links de afiliada.")
+            situacao, detalhe = ri._enviar({"id": alvo}, {"text": texto})
+            resultado["envio_texto"] = {"situacao": situacao, "detalhe": detalhe if situacao != "ok" else "enviada"}
+        return jsonify(resultado)
+    except (ig.InstagramPublishError, RuntimeError) as erro:
+        return jsonify({"ok": False, "erro": str(erro)})
+
+
 @app.route("/instagram-publicar/stories-do-dia")
 def instagram_publicar_stories():
     from web import stories_dia
