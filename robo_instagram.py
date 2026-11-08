@@ -456,8 +456,11 @@ def decidir_direct(mensagens: list, situacao: dict, eh_minha, robo: dict) -> str
         return ""
     if _idade_em_horas(ultima.get("created_time")) >= HORAS_JANELA_DIRECT:
         return ""
-    if any(eh_minha(m) and m.get("id") not in robo for m in mensagens):
-        return "avisar"  # a Keiti ja escreveu nessa conversa
+    # A Keiti ja escreveu nessa conversa. Mensagem da conta sem texto digitado sao os
+    # cartoes do robo (inclusive os do robo dos comentarios): essas nao contam.
+    if any(eh_minha(m) and m.get("id") not in robo and str(m.get("message") or "").strip()
+           for m in mensagens):
+        return "avisar"
     texto = str(ultima.get("message") or "")
     if eh_quero(texto):
         # Mesmos links de novo em menos de 24h: deixa para a Keiti. Outro story: manda.
