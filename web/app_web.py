@@ -1099,6 +1099,8 @@ def whatsapp_ajustes():
         "amazon_tag": request.form.get("amazon_tag", "").strip(),
         "palavras_bloqueadas": _linhas("palavras_bloqueadas"),
         "categorias": categorias or wd.CATEGORIAS_PADRAO,
+        "tema_hora": (_horarios(request.form.get("tema_hora")) or [""])[0],
+        "tema_categorias": _linhas("tema_categorias") or wd.CATEGORIAS_BELEZA_PADRAO,
         "ganchos": _linhas("ganchos") or wd.GANCHOS_PADRAO,
         "chamadas": _linhas("chamadas") or wd.CHAMADAS_PADRAO,
         "nome_curto_ia": bool(request.form.get("nome_curto_ia")),

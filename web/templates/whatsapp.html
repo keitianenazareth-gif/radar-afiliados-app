@@ -202,6 +202,20 @@
             <label class="linhas-info"><input type="checkbox" name="incluir_geral" value="1"
                 {{ 'checked' if '' in config.categorias }}> Incluir também a vitrine geral da Shopee</label>
 
+            <label class="rotulo">Rodada só de beleza, cabelo e pele
+                <select name="tema_hora">
+                    <option value="" {{ 'selected' if not config.tema_hora }}>Desligada</option>
+                    {% for h in (config.rodadas or []) %}
+                    <option value="{{ h }}" {{ 'selected' if config.tema_hora == h }}>{{ h }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <p class="linhas-info">Nesse horário o robô busca só nas categorias abaixo. As ofertas da fila
+                (Mercado Livre e Amazon) esperam a rodada seguinte. Evite a primeira rodada do dia, a dos cupons.</p>
+            <label class="rotulo">Categorias da rodada de beleza (uma por linha)
+                <textarea name="tema_categorias" style="min-height:140px">{{ config.tema_categorias|join('\n') }}</textarea>
+            </label>
+
             <div style="margin-top:14px">
                 <button type="submit" class="botao botao-destaque">SALVAR AJUSTES</button>
             </div>

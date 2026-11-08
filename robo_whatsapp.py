@@ -191,13 +191,15 @@ def _proxima_lista(nomes: list) -> int:
     return 0
 
 
-def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict) -> list:
+def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict,
+                            categorias: list | None = None) -> list:
     """Busca em categorias e paginas variadas e mistura as 3 listas
-    (uma de cada vez, em rodizio) ate completar a quantidade."""
+    (uma de cada vez, em rodizio) ate completar a quantidade. Com "categorias"
+    (rodada tematica), busca em todas elas em vez do rodizio."""
     if quantidade <= 0:
         return []
     bloqueadas = config.get("palavras_bloqueadas") or []
-    categorias = _categorias_da_vez(config.get("categorias") or [""])
+    categorias = categorias or _categorias_da_vez(config.get("categorias") or [""])
     print("Categorias desta rodada: " + ", ".join(c or "vitrine geral" for c in categorias))
 
     buscas = {2: [], 5: [], 4: []}
@@ -497,7 +499,8 @@ def _misturar(fila: list, shopee: list) -> list:
 
 
 def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
-                com_cupom: bool = True, primeira_do_dia: bool = False) -> list:
+                com_cupom: bool = True, primeira_do_dia: bool = False,
+                tema: bool = False) -> list:
     """Devolve a lista de mensagens do proximo lote, cada uma como
     {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "quantidade"
     (rodada), usa a fila toda que couber e completa com a Shopee; sem ela
@@ -535,7 +538,8 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
     por_lote = quantidade or max(0, int(config.get("por_lote") or 0))
 
     # 2) Fila de outras lojas: sem as vencidas e com as prioritarias na frente.
-    na_fila = dados.fila_para_envio()
+    # Na rodada tematica (so beleza), a fila espera a rodada seguinte.
+    na_fila = [] if tema else dados.fila_para_envio()
     # Tipo que ja chegou ao limite do dia fica de fora (e vence, se tiver prazo).
     tipos_hoje = dados.tipos_de_hoje()
     na_fila = [i for i in na_fila
@@ -558,7 +562,9 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
     da_shopee = []
     if faltam > 0:
         historico = dados.ler_historico()
-        da_shopee = escolher_ofertas_shopee(faltam, dados.ids_recentes(historico), config)
+        da_shopee = escolher_ofertas_shopee(
+            faltam, dados.ids_recentes(historico), config,
+            categorias=(config.get("tema_categorias") or None) if tema else None)
 
     # Nome curto pelo Gemini: uma chamada so para o lote todo (se falhar,
     # ficam os nomes originais). O titulo do historico usa o nome original,
@@ -691,7 +697,7 @@ def _depois_de_enviar(msg: dict) -> None:
 
 
 def enviar_lote(origem: str = "automatico", quantidade: int = 0,
-                primeira_do_dia: bool = False) -> int:
+                primeira_do_dia: bool = False, tema: bool = False) -> int:
     """Monta e envia um lote. Devolve quantas mensagens foram enviadas."""
     faltando = whatsapp_configurado()
     if faltando:
@@ -707,7 +713,8 @@ def enviar_lote(origem: str = "automatico", quantidade: int = 0,
             print(f"Oferta vencida, nao enviada: {vencida.get('nome')}")
             dados.registrar("aviso", f"Oferta vencida, não enviada: {vencida.get('nome')}",
                             vencida.get("link", ""), ok=False, origem=origem)
-        lote = montar_lote(config, quantidade=quantidade, primeira_do_dia=primeira_do_dia)
+        lote = montar_lote(config, quantidade=quantidade, primeira_do_dia=primeira_do_dia,
+                           tema=tema)
         if not lote:
             print("Nada para enviar agora (sem ofertas novas, fila e cupons vazios).")
             dados.registrar("aviso", "Lote vazio: nenhuma oferta nova encontrada",
@@ -782,9 +789,12 @@ def rodar_agendado() -> None:
         _aviso_actions("warning", "WhatsApp nao configurado", "Falta: " + ", ".join(faltando))
         return
     primeira = _primeira_do_dia(agora)
+    tema = bool(config.get("tema_hora")) and config.get("tema_hora") == rodada["hora"]
+    if tema:
+        print(f"Rodada das {rodada['hora']}: so beleza, cabelo e pele.")
     dados.marcar_ultimo_lote(rodada["marca"])
     enviados = enviar_lote("automatico", int(config.get("ofertas_por_rodada") or 0),
-                           primeira_do_dia=primeira)
+                           primeira_do_dia=primeira, tema=tema)
     if enviados == 0:
         _aviso_actions("warning", "Lote vazio", "Nenhuma mensagem foi enviada neste horario.")
 

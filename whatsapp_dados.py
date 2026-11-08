@@ -48,6 +48,12 @@ CATEGORIAS_PADRAO = [
     "skincare", "achadinhos", "cama mesa banho", "papelaria", "moda feminina", "limpeza", "churrasco",
     "acessorios celular", "viagem", "festa", "ferramentas jardim",
 ]
+# Rodada tematica: num horario so, o robo busca so nestas categorias.
+CATEGORIAS_BELEZA_PADRAO = [
+    "maquiagem", "skincare", "cabelo", "shampoo", "condicionador", "mascara capilar",
+    "creme de pentear", "hidratante corporal", "protetor solar", "serum facial",
+    "creme facial", "escova de cabelo", "secador de cabelo", "batom",
+]
 # Lista anterior: se ainda for a salva na pagina, passa a valer a nova.
 _CATEGORIAS_ANTIGAS = [
     "casa", "cozinha", "beleza", "maquiagem", "skincare", "moda feminina",
@@ -109,6 +115,9 @@ CONFIG_PADRAO = {
     "link_cupons_shopee": "https://s.shopee.com.br/LoaO11Rus",
     "palavras_bloqueadas": PALAVRAS_BLOQUEADAS_PADRAO,
     "categorias": CATEGORIAS_PADRAO,
+    # Rodada so de beleza, cabelo e pele ("" = desligada). Nela a fila espera a proxima.
+    "tema_hora": "20:00",
+    "tema_categorias": CATEGORIAS_BELEZA_PADRAO,
     "ganchos": GANCHOS_PADRAO,
     "chamadas": CHAMADAS_PADRAO,
     "nome_curto_ia": True,   # Gemini encurta o nome dos produtos
