@@ -66,6 +66,8 @@ PRECO_MAXIMO = 100     # R$ (o grupo compra mais coisa barata)
 PRECO_MINIMO = 5       # R$ (abaixo disso costuma ser so a variacao mais barata do anuncio)
 # Se o GitHub atrasar, o lote ainda sai ate esse tanto de horas depois do horario.
 CATEGORIAS_POR_LOTE = 5
+TENTATIVAS_BUSCA = 5   # a Shopee falha muito ao acaso ("System Error")
+BELEZA_POR_COMPLEMENTO = 5  # categorias de beleza sorteadas quando a rodada fica curta
 PAUSA_RODADA = (10, 20)  # segundos entre as mensagens de uma rodada
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 CAMPOS_EXTRAS = "shopId productLink ratingStar"
@@ -192,10 +194,12 @@ def _proxima_lista(nomes: list) -> int:
 
 
 def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict,
-                            categorias: list | None = None) -> list:
+                            categorias: list | None = None,
+                            tipos_extra: set | None = None) -> list:
     """Busca em categorias e paginas variadas e mistura as 3 listas
     (uma de cada vez, em rodizio) ate completar a quantidade. Com "categorias"
-    (rodada tematica), busca em todas elas em vez do rodizio."""
+    (rodada tematica), busca em todas elas em vez do rodizio. "tipos_extra":
+    tipos que ja sairam nesta rodada (para nao repetir no complemento)."""
     if quantidade <= 0:
         return []
     bloqueadas = config.get("palavras_bloqueadas") or []
@@ -205,17 +209,20 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict,
     buscas = {2: [], 5: [], 4: []}
     for termo in categorias:
         for sort_type in buscas:
-            # A Shopee as vezes devolve "System Error" numa busca: tenta mais uma vez.
-            for tentativa in (1, 2):
+            # A Shopee devolve "System Error" em boa parte das buscas, ao acaso:
+            # insistir costuma dar certo. A vitrine geral quase sempre falha,
+            # entao nela tenta menos para nao atrasar a rodada.
+            tentativas = TENTATIVAS_BUSCA if termo else 2
+            for tentativa in range(1, tentativas + 1):
                 try:
                     buscas[sort_type].append(
                         _buscar_lista(sort_type, termo, random.choice(PAGINAS)))
                     break
                 except RuntimeError as erro:
-                    if tentativa == 2:
+                    if tentativa == tentativas:
                         print(f"  Aviso: busca '{termo or 'geral'}' falhou ({erro}).")
                     else:
-                        time.sleep(2)
+                        time.sleep(1.5 * tentativa)
 
     vendidos = [p for p in _juntar(buscas[2]) if _passa_no_filtro(p, bloqueadas)]
     comissao = [p for p in _juntar(buscas[5]) if _passa_no_filtro(p, bloqueadas)]
@@ -237,7 +244,7 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict,
     nomes_usados = nomes_recentes(usados)
     # Fora: tipos que ja chegaram ao limite do dia, os da fila e, a cada escolha, o tipo
     # escolhido (assim nao saem 2 iguais na mesma rodada).
-    tipos_usados = dados.tipos_de_hoje() | dados.tipos_na_fila()
+    tipos_usados = dados.tipos_de_hoje() | dados.tipos_na_fila() | set(tipos_extra or ())
     pulados = 0
     while len(escolhidos) < quantidade and any(f for _, f in filas):
         for nome, fila in filas:
@@ -562,9 +569,25 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
     da_shopee = []
     if faltam > 0:
         historico = dados.ler_historico()
+        usados = dados.ids_recentes(historico)
+        beleza = list(config.get("tema_categorias") or dados.CATEGORIAS_BELEZA_PADRAO)
         da_shopee = escolher_ofertas_shopee(
-            faltam, dados.ids_recentes(historico), config,
-            categorias=(config.get("tema_categorias") or None) if tema else None)
+            faltam, usados, config, categorias=beleza if tema else None)
+        # Rodada curta (faltou promocao nas categorias da vez): completa com
+        # produtos de beleza, com as mesmas regras de desconto e preco.
+        faltam -= len(da_shopee)
+        if quantidade and not tema and faltam > 0 and beleza:
+            print(f"Rodada curta: completando {faltam} com produtos de beleza.")
+            ja = set(usados)
+            for p in da_shopee:
+                ja.update(k for k in (str(p.get("itemId")), chave_foto(p.get("imageUrl")),
+                                      chave_nome(p.get("productName", ""))) if k)
+            tipos = {dados.tipo_do_produto(str(i.get("nome") or "")) for i in da_fila}
+            tipos |= {dados.tipo_do_produto(str(p.get("productName") or "")) for p in da_shopee}
+            tipos.discard("")
+            da_shopee += escolher_ofertas_shopee(
+                faltam, ja, config, tipos_extra=tipos,
+                categorias=random.sample(beleza, min(BELEZA_POR_COMPLEMENTO, len(beleza))))
 
     # Nome curto pelo Gemini: uma chamada so para o lote todo (se falhar,
     # ficam os nomes originais). O titulo do historico usa o nome original,
