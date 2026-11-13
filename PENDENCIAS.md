@@ -26,6 +26,11 @@ da Shopee; antes de conectar o WhatsApp, ver se o número pessoal é o mesmo do 
 ScanHub recomenda número de WhatsApp Business dedicado). Não cadastrar a chave da Shopee por ora.
 
 ## Situação atual
+- Robô parado em 11 e 12/11 (rodadas não saíam): provável rodada longa demais depois da
+  mudança de 09/11 (5 tentativas por busca da Shopee); o Railway pula as execuções enquanto
+  a anterior roda. Corrigido em 12/11 (commit 9436ac2): buscas no máximo 6 min por rodada e
+  execução encerrada após 40 min, com aviso no registro de envios. Conferir nos próximos dias
+  se as rodadas saem no horário e se aparece aviso de "tempo de busca esgotado".
 - Robô do WhatsApp (`robo_whatsapp.py`): desde 05/11, 15 rodadas por dia (de hora em hora,
   das 7h às 21h) com 20 ofertas de uma vez e pausa de 10 a 20 s (decisão da Keiti, editável em
   /whatsapp). A fila entra misturada com a Shopee; se faltar oferta, a rodada sai menor e fica aviso.
