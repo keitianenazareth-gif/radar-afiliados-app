@@ -521,7 +521,7 @@ def _misturar(fila: list, shopee: list) -> list:
 
 def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
                 com_cupom: bool = True, primeira_do_dia: bool = False,
-                tema: bool = False) -> list:
+                tema: bool = False, registrar_avisos: bool = False) -> list:
     """Devolve a lista de mensagens do proximo lote, cada uma como
     {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "quantidade"
     (rodada), usa a fila toda que couber e completa com a Shopee; sem ela
@@ -592,6 +592,34 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
         # Rodada curta (faltou promocao nas categorias da vez): completa com
         # produtos de beleza, com as mesmas regras de desconto e preco.
         faltam -= len(da_shopee)
+        # Ainda curta: entra a reserva do Mercado Livre (tarefa do notebook),
+        # respeitando o limite de tipos do dia e sem 2 do mesmo tipo na rodada.
+        if quantidade and not tema and faltam > 0:
+            tipos = {dados.tipo_do_produto(str(i.get("nome") or "")) for i in da_fila}
+            tipos |= {dados.tipo_do_produto(str(p.get("productName") or "")) for p in da_shopee}
+            tipos |= dados.tipos_de_hoje()
+            tipos.discard("")
+            da_reserva = []
+            for item in dados.reserva_para_envio():
+                if len(da_reserva) >= faltam:
+                    break
+                tipo = dados.tipo_do_produto(str(item.get("nome") or ""))
+                if tipo and tipo in tipos:
+                    continue
+                tipos.add(tipo)
+                da_reserva.append(item)
+            if da_reserva:
+                print(f"Rodada curta: completando {len(da_reserva)} com a reserva do Mercado Livre.")
+                if registrar_avisos:
+                    dados.registrar("aviso", f"Rodada completada com {len(da_reserva)} "
+                                    "oferta(s) da reserva do Mercado Livre", ok=False,
+                                    origem="automatico")
+                da_fila += da_reserva
+                faltam -= len(da_reserva)
+            elif registrar_avisos:
+                dados.registrar("aviso", "Rodada curta e sem reserva do Mercado Livre "
+                                "(notebook desligado ou reserva acabou)", ok=False,
+                                origem="automatico")
         if quantidade and not tema and faltam > 0 and beleza:
             print(f"Rodada curta: completando {faltam} com produtos de beleza.")
             ja = set(usados)
@@ -753,7 +781,7 @@ def enviar_lote(origem: str = "automatico", quantidade: int = 0,
             dados.registrar("aviso", f"Oferta vencida, não enviada: {vencida.get('nome')}",
                             vencida.get("link", ""), ok=False, origem=origem)
         lote = montar_lote(config, quantidade=quantidade, primeira_do_dia=primeira_do_dia,
-                           tema=tema)
+                           tema=tema, registrar_avisos=bool(quantidade))
         if not lote:
             print("Nada para enviar agora (sem ofertas novas, fila e cupons vazios).")
             dados.registrar("aviso", "Lote vazio: nenhuma oferta nova encontrada",

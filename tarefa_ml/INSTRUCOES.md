@@ -12,6 +12,10 @@ coloca ofertas na fila da página /whatsapp; o robô manda a fila nas rodadas (d
 | Das 9h às 16h (10h30) | 5 do painel | 2 | nenhum | na rodada das 11h em diante |
 | Depois das 16h (18h30) | 3 do painel + 2 do Ofertaço | 2 | nenhum | na rodada das 19h em diante |
 
+Além disso, **toda execução coloca até 8 ofertas de RESERVA do painel de
+afiliados** (passo 2b). A reserva não sai sozinha: o robô só usa quando a
+Shopee não completa a rodada, e o que sobrar vence às 21h do mesmo dia.
+
 Colocar mais que isso faria a oferta esperar na fila e vencer. O Mercado Livre
 é o foco porque paga melhor que as outras lojas. Na execução das 6h30, pular o
 painel e a Amazon: o Ofertaço sai de manhã para o pessoal ter tempo de entrar e
@@ -47,6 +51,12 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
      oferta sair. `OFERTA DO DIA` só na execução das 6h30, com
      `"vale_ate_hora": "12:00"` e `"prioridade": true` no arquivo. `BLACK
      FRIDAY` e `OFERTA IMPERDÍVEL` valem em qualquer horário.
+
+   **2b. Reserva (toda execução, até 8):** mais ofertas do **painel de
+   afiliados** (Ganhos extras), nunca do Ofertaço (ele vence rápido), diferentes
+   das 5 escolhidas acima e entre si (nada do mesmo tipo). As mesmas regras
+   abaixo valem. No arquivo, cada uma leva `"reserva": true` (o `fila_ml.py`
+   coloca o prazo das 21h sozinho). Se não houver 8 boas, colocar menos.
 
    Se não houver 5 que passem nas regras, colocar menos em vez de baixar o
    critério: às 10h30 e às 18h30 a Shopee completa; às 6h30 sai menos oferta de
@@ -112,7 +122,9 @@ Pasta do projeto: `C:\Users\keiti\Desktop\radar-afiliados-projeto`
    - Código do cupom: só com o código escrito na página, no campo
      `"cupom": "CODIGO"`. O Mercado Livre costuma ativar o cupom sem código, então
      o normal é este campo ficar de fora. Nunca adivinhar um código.
-   - Prazo: o `fila_ml.py` coloca 6 horas em toda oferta. Se ela vencer antes de
+   - Reserva: `"reserva": true` nas ofertas do passo 2b, e nada de
+     `vale_ate_hora` ou `prioridade` nelas.
+   - Prazo: o `fila_ml.py` coloca 6 horas em toda oferta (a reserva vale até as 21h). Se ela vencer antes de
      sair, o robô descarta. Só escrever `vale_ate_hora` e `prioridade` na
      `OFERTA DO DIA`.
 

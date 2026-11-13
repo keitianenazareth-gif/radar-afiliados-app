@@ -31,6 +31,10 @@ ScanHub recomenda número de WhatsApp Business dedicado). Não cadastrar a chave
   a anterior roda. Corrigido em 12/11 (commit 9436ac2): buscas no máximo 6 min por rodada e
   execução encerrada após 40 min, com aviso no registro de envios. Conferir nos próximos dias
   se as rodadas saem no horário e se aparece aviso de "tempo de busca esgotado".
+- Reserva do Mercado Livre (12/11): a tarefa do notebook põe até 8 ofertas do painel com
+  `"reserva": true`; o robô só usa quando a Shopee não completa a rodada (antes da beleza da
+  Shopee), e o que sobrar vence às 21h. Aparece como "🧰 reserva" na fila e com aviso no
+  registro de envios. Conferir a primeira execução da tarefa com reserva.
 - Robô do WhatsApp (`robo_whatsapp.py`): desde 05/11, 15 rodadas por dia (de hora em hora,
   das 7h às 21h) com 20 ofertas de uma vez e pausa de 10 a 20 s (decisão da Keiti, editável em
   /whatsapp). A fila entra misturada com a Shopee; se faltar oferta, a rodada sai menor e fica aviso.

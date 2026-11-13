@@ -273,7 +273,7 @@ def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
                       imagem: str = "", observacao: str = "",
                       preco_antigo: str = "", vale_ate: float = 0,
                       vale_ate_texto: str = "", prioridade: bool = False,
-                      cupom: str = "") -> dict:
+                      cupom: str = "", reserva: bool = False) -> dict:
     item = {
         "id": uuid.uuid4().hex[:8],
         "loja": loja or "Outra",
@@ -288,6 +288,9 @@ def adicionar_na_fila(loja: str, link: str, nome: str, preco: str = "",
         "vale_ate": vale_ate,  # hora (epoch) em que a oferta vence; 0 = sem prazo
         "vale_ate_texto": vale_ate_texto,  # o mesmo prazo, para mostrar na pagina
         "prioridade": prioridade,  # sai antes das demais (ex.: Oferta do dia)
+        # Reserva: so sai para completar rodada curta (a Shopee nao achou o
+        # bastante); o que sobrar vence no fim do dia.
+        "reserva": reserva,
     }
     fila = listar_fila()
     fila.append(item)
@@ -312,7 +315,13 @@ def ordenar_para_envio(fila: list, agora: float | None = None) -> list:
 
 
 def fila_para_envio() -> list:
-    return ordenar_para_envio(listar_fila())
+    """A fila normal (sem a reserva), na ordem de envio."""
+    return ordenar_para_envio([i for i in listar_fila() if not i.get("reserva")])
+
+
+def reserva_para_envio() -> list:
+    """Ofertas de reserva ainda validas, na ordem em que entraram."""
+    return ordenar_para_envio([i for i in listar_fila() if i.get("reserva")])
 
 
 def limpar_fila_vencida() -> list:
@@ -401,7 +410,9 @@ def tipos_de_hoje() -> set:
 
 
 def tipos_na_fila() -> set:
-    tipos = {tipo_do_produto(str(i.get("nome") or "")) for i in listar_fila()}
+    # A reserva nao conta: ela so sai se a rodada ficar curta.
+    tipos = {tipo_do_produto(str(i.get("nome") or "")) for i in listar_fila()
+             if not i.get("reserva")}
     tipos.discard("")
     return tipos
 
@@ -411,7 +422,8 @@ def tipo_repetido(nome: str) -> str:
     tipo = tipo_do_produto(nome)
     if not tipo:
         return ""
-    na_fila = sum(1 for i in listar_fila() if tipo_do_produto(str(i.get("nome") or "")) == tipo)
+    na_fila = sum(1 for i in listar_fila()
+                  if not i.get("reserva") and tipo_do_produto(str(i.get("nome") or "")) == tipo)
     return tipo if _contagem_tipos_hoje().get(tipo, 0) + na_fila >= MAX_POR_TIPO_DIA else ""
 
 

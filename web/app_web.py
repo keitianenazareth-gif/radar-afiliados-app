@@ -1132,7 +1132,8 @@ def whatsapp_fila_adicionar():
                          vale_ate=vale_ate,
                          vale_ate_texto=request.form.get("vale_ate_texto", "").strip(),
                          prioridade=request.form.get("prioridade") == "1",
-                         cupom=request.form.get("cupom", ""))
+                         cupom=request.form.get("cupom", ""),
+                         reserva=request.form.get("reserva") == "1")
     return _responder(True, f"✅ Adicionado na fila: {nome[:60]}", "adicionado")
 
 

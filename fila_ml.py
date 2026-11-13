@@ -15,6 +15,8 @@ gera o link oficial de afiliada (meli.la) e grava um arquivo JSON assim:
     ]
 
 Itens com "tipo": "cupom" vao para a lista de cupons (saem uma vez so).
+Ofertas com "reserva": true ficam guardadas e so saem quando a Shopee nao
+completa a rodada; valem ate HORA_FIM_RESERVA de hoje.
 Toda oferta vale por VALIDADE_HORAS; "vale_ate_hora" troca por um horario de
 hoje. Se vencer antes do lote, o robo descarta em vez de mandar preco velho.
 
@@ -45,6 +47,7 @@ except ImportError:
 
 RADAR_URL = os.environ.get("RADAR_URL", "https://radar-afiliados-web.onrender.com")
 VALIDADE_HORAS = 6
+HORA_FIM_RESERVA = "21:00"  # a reserva que sobrar nao passa para o dia seguinte
 FUSO = timezone(timedelta(hours=-3))  # Brasilia; o Windows nao traz a base de fusos
 CAMPOS = ("link", "nome", "preco", "preco_antigo", "imagem", "observacao", "cupom")
 CAMPOS_CUPOM = ("link", "descricao", "detalhes", "validade", "como_ativar")
@@ -84,6 +87,8 @@ def prazo_da_oferta(oferta: dict, agora: datetime | None = None) -> datetime:
     """Quando a oferta vence: o "vale_ate_hora" de hoje ou VALIDADE_HORAS."""
     agora = agora or datetime.now(FUSO)
     hora = str(oferta.get("vale_ate_hora") or "").strip()
+    if oferta.get("reserva"):
+        hora = HORA_FIM_RESERVA
     if hora:
         horas, minutos = hora.split(":")
         return agora.replace(hour=int(horas), minute=int(minutos), second=0, microsecond=0)
@@ -99,7 +104,8 @@ def enviar_para_fila(sessao: requests.Session, oferta: dict) -> dict:
         prazo = prazo_da_oferta(oferta)
         dados.update({"vale_ate": str(prazo.timestamp()),
                       "vale_ate_texto": prazo.strftime("%d/%m %H:%M"),
-                      "prioridade": "1" if oferta.get("prioridade") else ""})
+                      "prioridade": "1" if oferta.get("prioridade") else "",
+                      "reserva": "1" if oferta.get("reserva") else ""})
     # "loja": "Amazon" para ofertas da Amazon (o site poe a tag e tira o preco).
     dados.update({"loja": oferta.get("loja") or "Mercado Livre", "formato": "json"})
     resposta = sessao.post(f"{RADAR_URL}{caminho}", data=dados, timeout=60)
@@ -139,7 +145,8 @@ def main() -> int:
                 print(mensagem_fila({**oferta, "loja": loja}))
             if oferta.get("tipo") != "cupom":
                 print(f"[vale até {prazo_da_oferta(oferta).strftime('%d/%m %H:%M')}"
-                      f"{', sai primeiro' if oferta.get('prioridade') else ''}]")
+                      f"{', sai primeiro' if oferta.get('prioridade') else ''}"
+                      f"{', reserva' if oferta.get('reserva') else ''}]")
             print("-" * 40)
         return 0
 
