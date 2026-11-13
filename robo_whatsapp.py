@@ -71,6 +71,15 @@ BELEZA_POR_COMPLEMENTO = 5  # categorias de beleza sorteadas quando a rodada fic
 PAUSA_RODADA = (10, 20)  # segundos entre as mensagens de uma rodada
 PAGINAS = [1, 1, 2, 2, 3]  # sorteia a pagina (a 1 tem mais chance)
 CAMPOS_EXTRAS = "shopId productLink ratingStar"
+# Tempo maximo das buscas da Shopee numa rodada. Sem limite, com a Shopee lenta
+# (5 tentativas x 30 s em dezenas de buscas) a rodada passava de 1 hora, e o
+# Railway pula as proximas execucoes enquanto a anterior ainda roda: o robo
+# "parava". Esgotado o prazo, a rodada sai com o que ja achou.
+LIMITE_BUSCAS_S = 6 * 60
+# Tempo maximo de uma execucao agendada inteira (Instagram + rodada). Passou
+# disso, ela e' encerrada para nao travar as proximas do Railway.
+LIMITE_EXECUCAO_S = 40 * 60
+_prazo_buscas = 0.0  # time.time() limite das buscas da rodada atual (0 = sem limite)
 
 
 def _env(nome: str, padrao: str = "") -> str:
@@ -207,22 +216,27 @@ def escolher_ofertas_shopee(quantidade: int, ja_usados: set, config: dict,
     print("Categorias desta rodada: " + ", ".join(c or "vitrine geral" for c in categorias))
 
     buscas = {2: [], 5: [], 4: []}
-    for termo in categorias:
-        for sort_type in buscas:
-            # A Shopee devolve "System Error" em boa parte das buscas, ao acaso:
-            # insistir costuma dar certo. A vitrine geral quase sempre falha,
-            # entao nela tenta menos para nao atrasar a rodada.
-            tentativas = TENTATIVAS_BUSCA if termo else 2
-            for tentativa in range(1, tentativas + 1):
-                try:
-                    buscas[sort_type].append(
-                        _buscar_lista(sort_type, termo, random.choice(PAGINAS)))
+    pares = [(termo, sort_type) for termo in categorias for sort_type in buscas]
+    for termo, sort_type in pares:
+        if _prazo_buscas and time.time() >= _prazo_buscas:
+            print("  Aviso: tempo de busca da rodada esgotado, seguindo com o que achou.")
+            break
+        # A Shopee devolve "System Error" em boa parte das buscas, ao acaso:
+        # insistir costuma dar certo. A vitrine geral quase sempre falha,
+        # entao nela tenta menos para nao atrasar a rodada.
+        tentativas = TENTATIVAS_BUSCA if termo else 2
+        for tentativa in range(1, tentativas + 1):
+            try:
+                buscas[sort_type].append(
+                    _buscar_lista(sort_type, termo, random.choice(PAGINAS)))
+                break
+            except RuntimeError as erro:
+                sem_tempo = bool(_prazo_buscas) and time.time() >= _prazo_buscas
+                if tentativa == tentativas or sem_tempo:
+                    print(f"  Aviso: busca '{termo or 'geral'}' falhou ({erro}).")
                     break
-                except RuntimeError as erro:
-                    if tentativa == tentativas:
-                        print(f"  Aviso: busca '{termo or 'geral'}' falhou ({erro}).")
-                    else:
-                        time.sleep(1.5 * tentativa)
+                else:
+                    time.sleep(1.5 * tentativa)
 
     vendidos = [p for p in _juntar(buscas[2]) if _passa_no_filtro(p, bloqueadas)]
     comissao = [p for p in _juntar(buscas[5]) if _passa_no_filtro(p, bloqueadas)]
@@ -512,6 +526,8 @@ def montar_lote(config: dict, gerar_links: bool = True, quantidade: int = 0,
     {tipo, titulo, texto, imagem, link, ref}. Nao envia nada. Com "quantidade"
     (rodada), usa a fila toda que couber e completa com a Shopee; sem ela
     (botao "Enviar agora"), segue os ajustes por_lote e fila_por_lote."""
+    global _prazo_buscas
+    _prazo_buscas = time.time() + LIMITE_BUSCAS_S
     lote = []
     hoje = dados.agora_brasil().strftime("%Y-%m-%d")
     estilo = Estilo(config)
@@ -837,6 +853,27 @@ def rodar_teste() -> None:
     print("\nModo teste: nada foi enviado.")
 
 
+class TempoEsgotado(BaseException):  # BaseException: nenhum "except Exception" engole
+    pass
+
+
+def _ligar_limite_execucao() -> None:
+    """Encerra a execucao agendada se ela passar de LIMITE_EXECUCAO_S, para o
+    Railway nao pular as proximas (a trava do lote e' solta no finally)."""
+    import signal
+
+    if not hasattr(signal, "SIGALRM"):  # Windows (teste no notebook)
+        return
+
+    def _estourou(_sinal, _quadro):
+        raise TempoEsgotado(
+            f"Execucao passou de {LIMITE_EXECUCAO_S // 60} min e foi encerrada "
+            "(Shopee ou WhatsApp lentos); a proxima rodada sai normalmente.")
+
+    signal.signal(signal.SIGALRM, _estourou)
+    signal.alarm(LIMITE_EXECUCAO_S)
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     try:
@@ -853,6 +890,7 @@ if __name__ == "__main__":
         elif "--agora" in args:
             enviar_lote("manual (Actions)")
         else:
+            _ligar_limite_execucao()
             try:
                 import robo_instagram
 
@@ -860,6 +898,13 @@ if __name__ == "__main__":
             except Exception as erro:  # noqa: BLE001 - o WhatsApp sai mesmo se o Instagram falhar
                 print(f"Instagram: {type(erro).__name__}")
             rodar_agendado()
+    except TempoEsgotado as erro:
+        print(f"ERRO: {erro}")
+        try:
+            dados.registrar("aviso", str(erro), ok=False, origem="automatico")
+        except RuntimeError:
+            pass
+        sys.exit(1)
     except (RuntimeError, requests.RequestException) as erro:
         print(f"ERRO: {erro}")
         _aviso_actions("error", "Robo WhatsApp", str(erro)[:500])
